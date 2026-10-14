@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>تتبع طلبك</title>
+  <meta name="theme-color" content="#15803d">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/cairo-arabic-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-title="تتبع طلبك">
+  <header class="header">
+    <div class="container header-inner">
+      <a href="/" class="logo" aria-label="الصفحة الرئيسية">
+        <img src="/images/logo.svg" alt="" width="40" height="40">
+        <span data-store-name>خيرات ماركت</span>
+      </a>
+      <nav class="header-actions" aria-label="روابط">
+        <a href="/?cart=1" class="cart-btn" data-icon="cart" aria-label="السلة">
+          <span class="hide-sm">السلة</span>
+          <span class="cart-count" data-cart-count>0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container page">
+    <div id="orderRoot"></div>
+
+    <section class="panel no-print" id="trackPanel" aria-labelledby="trackTitle">
+      <h2 class="panel-title" id="trackTitle">تتبع طلب</h2>
+      <form class="track-form" id="trackForm" novalidate>
+        <div class="field">
+          <label for="trackNumber">رقم الطلب</label>
+          <input id="trackNumber" name="number" inputmode="numeric" placeholder="مثال: 1001" dir="ltr" required>
+        </div>
+        <div class="field">
+          <label for="trackPhone">رقم الموبايل</label>
+          <input id="trackPhone" name="phone" type="tel" inputmode="numeric" placeholder="01xxxxxxxxx" dir="ltr" autocomplete="tel" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg">تتبع</button>
+      </form>
+      <p class="notice error" id="trackError" hidden></p>
+    </section>
+
+    <section class="panel no-print" id="myOrdersPanel" hidden aria-labelledby="myOrdersTitle">
+      <h2 class="panel-title" id="myOrdersTitle">طلباتك من الجهاز ده</h2>
+      <ul class="my-orders" id="myOrdersList"></ul>
+    </section>
+  </main>
+
+  <footer class="footer" id="footer"></footer>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/order.js"></script>
+</body>
+</html>

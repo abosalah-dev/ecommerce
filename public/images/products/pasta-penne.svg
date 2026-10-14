@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <circle cx="200" cy="214" r="156" fill="#f9dcdc"/>
+  <ellipse cx="200" cy="352" rx="118" ry="12" fill="#0f172a" opacity=".08"/>
+      <path d="M116 80 L122 70 L128 80 L134 70 L140 80 L146 70 L152 80 L158 70 L164 80 L170 70 L176 80 L182 70 L188 80 L194 70 L200 80 L206 70 L212 80 L218 70 L224 80 L230 70 L236 80 L242 70 L248 80 L254 70 L260 80 L266 70 L272 80 L278 70 L284 80  L284 80 L284 100 L116 100 Z" fill="#ac1e1e"/>
+      <path d="M112 96 H288 L298 330 Q298 348 280 348 H120 Q102 348 102 330 Z" fill="#dc2626"/>
+      <path d="M254 96 H288 L298 330 Q298 348 280 348 H262 Z" fill="#000000" opacity=".08"/>
+      <path d="M126 110 h10 l-6 220 h-10z" fill="#ffffff" opacity=".18"/>
+      <rect x="112" y="96" width="176" height="10" fill="#000000" opacity=".06"/>
+      <rect x="138" y="152" width="124" height="118" rx="20" fill="#fffbeb" stroke="#f1a8a8" stroke-width="4"/>
+      <g transform="rotate(-20 194 190)">
+        <polygon points="170,182 212,182 220,198 178,198" fill="#fbbf24" stroke="#d97706" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M182 182 l8 16 M194 182 l8 16 M206 182 l8 16" stroke="#d97706" stroke-width="1.2" opacity=".6"/>
+      </g>
+      <g transform="rotate(15 208 212)">
+        <polygon points="184,204 226,204 234,220 192,220" fill="#fbbf24" stroke="#d97706" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M196 204 l8 16 M208 204 l8 16 M220 204 l8 16" stroke="#d97706" stroke-width="1.2" opacity=".6"/>
+      </g>
+      <g transform="rotate(-5 190 234)">
+        <polygon points="166,226 208,226 216,242 174,242" fill="#fbbf24" stroke="#d97706" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M178 226 l8 16 M190 226 l8 16 M202 226 l8 16" stroke="#d97706" stroke-width="1.2" opacity=".6"/>
+      </g>
+    <rect x="152" y="288" width="96" height="8" rx="4" fill="#ffffff" opacity=".55"/>
+    <rect x="164" y="303" width="72" height="6" rx="3" fill="#ffffff" opacity=".3"/>
+</svg>
