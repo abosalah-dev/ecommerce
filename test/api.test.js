@@ -420,6 +420,42 @@ describe('لوحة التحكم', () => {
     assert.equal(fake.status, 400, 'لازم يكون ملف صورة حقيقي');
   });
 
+  test('أكتر من صورة للمنتج', async () => {
+    const created = await req('POST', '/api/admin/products', {
+      name: 'تونة',
+      categoryId: 'basics',
+      price: 40,
+      images: ['/uploads/a.webp', '/uploads/b.webp', '/uploads/a.webp', ''],
+    });
+    assert.equal(created.status, 201);
+    const p = created.data.product;
+    assert.deepEqual(p.images, ['/uploads/a.webp', '/uploads/b.webp'], 'بيشيل المكرر والفاضي');
+    assert.equal(p.image, '/uploads/a.webp', 'أول صورة هي الرئيسية');
+
+    const reordered = await req('PUT', `/api/admin/products/${p.id}`, { images: ['/uploads/b.webp', '/uploads/a.webp', '/uploads/c.webp'] });
+    assert.equal(reordered.data.product.image, '/uploads/b.webp');
+
+    const mainOnly = await req('PUT', `/api/admin/products/${p.id}`, { image: '/uploads/d.webp' });
+    assert.deepEqual(mainOnly.data.product.images, ['/uploads/d.webp', '/uploads/a.webp', '/uploads/c.webp'], 'تغيير الرئيسية بس ميمسحش باقي الصور');
+    const untouched = await req('PUT', `/api/admin/products/${p.id}`, { stock: 5 });
+    assert.equal(untouched.data.product.images.length, 3);
+
+    const store = await req('GET', '/api/store');
+    assert.deepEqual(store.data.products.find((x) => x.id === p.id).images, ['/uploads/d.webp', '/uploads/a.webp', '/uploads/c.webp']);
+    const seeded = store.data.products.find((x) => x.id !== p.id);
+    assert.deepEqual(seeded.images, [seeded.image], 'المنتجات القديمة بترجع صورتها في القائمة');
+
+    const cleared = await req('PUT', `/api/admin/products/${p.id}`, { images: [] });
+    assert.equal(cleared.data.product.image, '/images/products/placeholder.svg');
+
+    const tooMany = await req('PUT', `/api/admin/products/${p.id}`, { images: Array.from({ length: 9 }, (_, i) => `/uploads/${i}.webp`) });
+    assert.equal(tooMany.status, 400);
+    const badUrl = await req('PUT', `/api/admin/products/${p.id}`, { images: ['/uploads/ok.webp', 'https://evil.example/x.png'] });
+    assert.equal(badUrl.status, 400);
+    const notList = await req('PUT', `/api/admin/products/${p.id}`, { images: '/uploads/a.webp' });
+    assert.equal(notList.status, 400);
+  });
+
   test('تغيير كلمة السر', async () => {
     const wrong = await req('PUT', '/api/admin/password', { current: 'nope', next: 'secret99' });
     assert.equal(wrong.status, 400);

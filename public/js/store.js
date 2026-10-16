@@ -5,7 +5,7 @@
   const { h } = KM;
   const $ = (id) => document.getElementById(id);
 
-  const state = { store: null, category: 'all', query: '', sort: 'default', modalProduct: null };
+  const state = { store: null, category: 'all', query: '', sort: 'default', modalProduct: null, modalImage: 0 };
   let lastFocus = null;
 
   // توحيد الحروف العربية في البحث: أ/إ/آ = ا ، ة = ه ، ى = ي ، ومن غير تشكيل
@@ -299,7 +299,7 @@
       h(
         'div',
         { class: 'product-detail' },
-        h('div', { class: 'media' }, h('img', { src: p.image, alt: p.name, width: 400, height: 400 })),
+        productMedia(p),
         h(
           'div',
           { class: 'info' },
@@ -323,8 +323,35 @@
     );
   }
 
+  // الصورة الكبيرة + صور صغيرة تحتها لو المنتج ليه أكتر من صورة
+  function productMedia(p) {
+    const images = p.images && p.images.length ? p.images : [p.image];
+    state.modalImage = Math.min(state.modalImage, images.length - 1);
+    const main = h('img', { src: images[state.modalImage], alt: p.name, width: 400, height: 400 });
+    if (images.length < 2) return h('div', { class: 'media' }, main);
+    const thumbs = images.map((src, i) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'thumb',
+          'aria-label': `صورة ${i + 1} من ${images.length}`,
+          'aria-pressed': String(i === state.modalImage),
+          onclick: () => {
+            state.modalImage = i;
+            main.src = src;
+            thumbs.forEach((t, j) => t.setAttribute('aria-pressed', String(j === i)));
+          },
+        },
+        h('img', { src, alt: '', width: 56, height: 56, loading: 'lazy' })
+      )
+    );
+    return h('div', { class: 'media' }, main, h('div', { class: 'thumbs' }, thumbs));
+  }
+
   function openProduct(p) {
     state.modalProduct = p;
+    state.modalImage = 0;
     renderModal();
     const dialog = $('productModal');
     if (!dialog.open) dialog.showModal();

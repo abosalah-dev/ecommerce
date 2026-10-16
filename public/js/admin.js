@@ -18,6 +18,8 @@
     preparing: ['delivering', 'خرج للتوصيل'],
     delivering: ['delivered', 'تم التوصيل'],
   };
+  const PLACEHOLDER_IMAGE = '/images/products/placeholder.svg';
+  const MAX_PRODUCT_IMAGES = 8;
 
   const state = {
     view: 'dashboard',
@@ -758,33 +760,90 @@
   }
 
   function productForm(product, categories) {
-    const p = product || { active: true, featured: false, stock: 0, image: '/images/products/placeholder.svg', categoryId: state.productCategory || categories[0]?.id };
+    const p = product || { active: true, featured: false, stock: 0, image: PLACEHOLDER_IMAGE, categoryId: state.productCategory || categories[0]?.id };
     if (!categories.length) {
       KM.toast('ضيف قسم الأول قبل ما تضيف منتجات', 'error');
       location.hash = 'categories';
       return;
     }
-    const preview = h('img', { src: p.image, alt: 'صورة المنتج' });
-    const imageInput = h('input', { type: 'hidden', name: 'image' });
-    imageInput.value = p.image || '';
-    const fileInput = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' });
-    const uploadLabel = h('span', { text: 'ارفع صورة' });
+    // أول صورة في القائمة هي الرئيسية (اللي بتظهر في الكارت والسلة)
+    const images = (p.images?.length ? p.images : [p.image]).filter((url) => url && url !== PLACEHOLDER_IMAGE);
+    let uploading = false;
+    const gallery = h('div', { class: 'gallery' });
+    const fileInput = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', multiple: true, 'aria-label': 'ضيف صور' });
+    const uploadLabel = h('span', { text: 'ضيف صور' });
+    const addTile = h('span', { class: 'gallery-add file-btn' }, KM.icon('plus'), uploadLabel, fileInput);
+
+    function drawGallery() {
+      gallery.replaceChildren(
+        ...images.map((url, i) =>
+          h(
+            'div',
+            { class: i === 0 ? 'gallery-item main' : 'gallery-item' },
+            h('img', { src: url, alt: `صورة ${i + 1}` }),
+            i === 0
+              ? h('span', { class: 'main-badge', text: 'الرئيسية' })
+              : h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'gallery-btn set-main',
+                    title: 'خليها الصورة الرئيسية',
+                    'aria-label': 'خليها الصورة الرئيسية',
+                    onclick: () => {
+                      images.unshift(...images.splice(i, 1));
+                      drawGallery();
+                    },
+                  },
+                  KM.icon('star')
+                ),
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'gallery-btn remove',
+                title: 'امسح الصورة',
+                'aria-label': 'امسح الصورة',
+                onclick: () => {
+                  images.splice(i, 1);
+                  drawGallery();
+                },
+              },
+              KM.icon('close')
+            )
+          )
+        ),
+        ...(images.length < MAX_PRODUCT_IMAGES ? [addTile] : [])
+      );
+    }
+    drawGallery();
+
     fileInput.addEventListener('change', async () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      uploadLabel.textContent = 'جاري الرفع...';
-      try {
-        const dataUrl = await resizeImage(file);
-        const { url } = await api('/api/admin/upload', { method: 'POST', body: { dataUrl } });
-        imageInput.value = url;
-        preview.src = url;
-        KM.toast('الصورة اترفعت');
-      } catch (err) {
-        KM.toast(err.message || 'مقدرناش نرفع الصورة', 'error');
-      } finally {
-        uploadLabel.textContent = 'ارفع صورة';
-        fileInput.value = '';
+      const files = [...fileInput.files];
+      fileInput.value = '';
+      if (!files.length) return;
+      const room = MAX_PRODUCT_IMAGES - images.length;
+      if (files.length > room) KM.toast(`أقصى عدد ${MAX_PRODUCT_IMAGES} صور للمنتج، هنرفع أول ${room} بس`, 'error');
+      const batch = files.slice(0, room);
+      uploading = true;
+      addTile.classList.add('busy');
+      let uploaded = 0;
+      for (const [i, file] of batch.entries()) {
+        uploadLabel.textContent = batch.length > 1 ? `جاري الرفع ${i + 1}/${batch.length}` : 'جاري الرفع...';
+        try {
+          const dataUrl = await resizeImage(file);
+          const { url } = await api('/api/admin/upload', { method: 'POST', body: { dataUrl } });
+          images.push(url);
+          uploaded++;
+          drawGallery();
+        } catch (err) {
+          KM.toast(`${file.name}: ${err.message || 'مقدرناش نرفع الصورة'}`, 'error');
+        }
       }
+      uploading = false;
+      addTile.classList.remove('busy');
+      uploadLabel.textContent = 'ضيف صور';
+      if (uploaded) KM.toast(uploaded > 1 ? `اترفع ${uploaded} صور` : 'الصورة اترفعت');
     });
 
     const form = h(
@@ -806,19 +865,12 @@
         h(
           'div',
           { class: 'field full' },
-          h('span', { class: 'field-label', text: 'صورة المنتج' }),
-          h(
-            'div',
-            { class: 'image-field' },
-            preview,
-            h(
-              'div',
-              { class: 'controls' },
-              h('span', { class: 'btn btn-outline btn-sm file-btn' }, uploadLabel, fileInput),
-              h('span', { class: 'hint', text: 'PNG أو JPG أو WEBP • يفضل خلفية بيضاء أو شفافة' })
-            ),
-            imageInput
-          )
+          h('span', { class: 'field-label', text: 'صور المنتج' }),
+          gallery,
+          h('span', {
+            class: 'hint',
+            text: `PNG أو JPG أو WEBP • لحد ${MAX_PRODUCT_IMAGES} صور • الصورة الرئيسية هي اللي بتظهر في المتجر، ودوس ★ عشان تغيّرها`,
+          })
         ),
         h('div', { class: 'field full' }, h('div', { class: 'status-actions' }, switchEl('active', 'ظاهر في المتجر', p.active), switchEl('featured', 'من الأكثر طلباً', p.featured)))
       ),
@@ -848,6 +900,11 @@
         f.price.focus();
         return;
       }
+      if (uploading) {
+        errBox.textContent = 'استنى لحد ما الصور تخلص رفع';
+        errBox.hidden = false;
+        return;
+      }
       const body = {
         name: f.name.value,
         unit: f.unit.value,
@@ -858,7 +915,7 @@
         unitName: f.unitName.value,
         stock: f.stock.value === '' ? 0 : f.stock.value,
         description: f.description.value,
-        image: f.image.value,
+        images,
         active: f.active.checked,
         featured: f.featured.checked,
       };
