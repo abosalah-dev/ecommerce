@@ -6,6 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(location.search);
   let settings = null;
+  let storeData = null;
   let current = null; // { number, phone }
 
   const STEPS = [
@@ -18,6 +19,7 @@
   async function init() {
     try {
       const store = await KM.loadStore();
+      storeData = store;
       settings = store.settings;
       KM.applySettings(settings);
     } catch {
@@ -117,7 +119,8 @@
         h('span', { text: 'التوصيل' }),
         order.deliveryFee ? h('strong', { text: KM.money(order.deliveryFee) }) : h('strong', { class: 'free', text: 'مجاني' })
       ),
-      h('div', { class: 'summary-row total' }, h('span', { text: 'الإجمالي' }), h('span', { text: KM.money(order.total) }))
+      h('div', { class: 'summary-row total' }, h('span', { text: 'الإجمالي' }), h('span', { text: KM.money(order.total) })),
+      order.savings > 0 ? h('p', { class: 'savings-note', text: `🎉 وفّرت ${KM.money(order.savings)} بسعر الجملة عن أسعار السوق` }) : null
     );
 
     const c = order.customer;
@@ -154,12 +157,39 @@
     if (settings && settings.phone) {
       actions.appendChild(h('a', { class: 'btn btn-outline btn-lg', href: `tel:${settings.phone}` }, KM.icon('phone'), 'اتصل بينا'));
     }
-    actions.appendChild(h('a', { class: 'btn btn-primary btn-lg', href: '/' }, 'كمّل تسوق'));
-    nodes.push(h('div', { class: 'panel' }, actions));
+    if (storeData) {
+      actions.appendChild(
+        h('button', { type: 'button', class: 'btn btn-primary btn-lg', onclick: () => repeatOrder(order) }, KM.icon('refresh'), 'كرر نفس الخزين')
+      );
+    } else {
+      actions.appendChild(h('a', { class: 'btn btn-primary btn-lg', href: '/' }, 'كمّل تسوق'));
+    }
+    nodes.push(
+      h(
+        'div',
+        { class: 'panel' },
+        h('p', { class: 'repeat-hint no-print', text: 'خلص الخزين؟ دوس "كرر نفس الخزين" والمنتجات كلها تتضاف للسلة بالأسعار الجديدة.' }),
+        actions
+      )
+    );
 
     $('orderRoot').replaceChildren(...nodes);
     $('orderRoot').classList.add('order-view');
     if (isNew) window.scrollTo({ top: 0 });
+  }
+
+  // بيضيف كل منتجات الطلب القديم للسلة بالأسعار الحالية
+  function repeatOrder(order) {
+    const { added, missing } = KM.cart.addMany(
+      order.items.map((it) => ({ productId: it.productId, qty: it.qty })),
+      storeData
+    );
+    if (!added) {
+      KM.toast('منتجات الطلب ده مش متوفرة دلوقتي', 'error');
+      return;
+    }
+    if (missing.length) KM.storage.set('km_flash', `اتضافت المنتجات للسلة • ${missing.length} صنف مش متوفر حالياً`);
+    location.href = '/?cart=1';
   }
 
   function timeline(order) {

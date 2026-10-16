@@ -7,8 +7,9 @@ const os = require('os');
 const path = require('path');
 const { createApp } = require('../server/app');
 
-function startServer(options = {}) {
+function startServer({ prepare, ...options } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'km-test-'));
+  if (prepare) prepare(dataDir);
   const { app, store } = createApp({ dataDir, ...options });
   return new Promise((resolve) => {
     const server = app.listen(0, () => {
@@ -17,6 +18,7 @@ function startServer(options = {}) {
         store,
         base,
         dataDir,
+        product: (id) => store.data.products.find((p) => p.id === id),
         close: () =>
           new Promise((r) => {
             server.close(() => {
@@ -65,14 +67,33 @@ describe('واجهة المتجر', () => {
   });
   after(() => srv.close());
 
-  test('بيرجع الإعدادات والأقسام والمنتجات', async () => {
+  test('بيرجع الإعدادات والأقسام ومنتجات الجملة', async () => {
     const { status, data } = await req('GET', '/api/store');
     assert.equal(status, 200);
     assert.equal(data.settings.storeName, 'خيرات ماركت');
+    assert.equal(data.settings.minOrder, 1000);
     assert.ok(data.categories.length >= 6);
-    assert.ok(data.products.length >= 20);
-    assert.ok(data.products.some((p) => p.id === 'sugar-1kg'));
-    assert.equal(data.products[0].active, undefined, 'مش المفروض نرجع حقول داخلية');
+    assert.ok(data.products.length >= 25);
+    const sugar = data.products.find((p) => p.id === 'sugar-10kg');
+    assert.equal(sugar.price, 350);
+    assert.equal(sugar.marketPrice, 400);
+    assert.equal(sugar.unitCount, 10);
+    assert.equal(sugar.unitName, 'كيلو');
+    assert.equal(sugar.active, undefined, 'مش المفروض نرجع حقول داخلية');
+  });
+
+  test('الخزين الجاهز بيتحسب من أسعار المنتجات الحالية', async () => {
+    const { data } = await req('GET', '/api/store');
+    assert.equal(data.bundles.length, 3);
+    const prices = new Map(data.products.map((p) => [p.id, p]));
+    for (const b of data.bundles) {
+      const total = b.items.reduce((s, it) => s + prices.get(it.productId).price * it.qty, 0);
+      const market = b.items.reduce((s, it) => s + (prices.get(it.productId).marketPrice || prices.get(it.productId).price) * it.qty, 0);
+      assert.equal(b.total, total, b.name);
+      assert.equal(b.marketTotal, market, b.name);
+      assert.ok(b.savings > 0, b.name);
+      assert.ok(b.total >= data.settings.minOrder, `${b.name} لازم يعدّي الحد الأدنى`);
+    }
   });
 
   test('الصفحات والملفات الثابتة شغالة مع security headers', async () => {
@@ -87,61 +108,65 @@ describe('واجهة المتجر', () => {
     assert.equal(missing.status, 404);
   });
 
-  test('الطلب بيتحسب من أسعار السيرفر وبيخصم من المخزون', async () => {
-    const before = srv.store.data.products.find((p) => p.id === 'sugar-1kg').stock;
+  test('الطلب بيتحسب من أسعار السيرفر وبيخصم من المخزون وبيحسب التوفير', async () => {
+    const before = srv.product('sugar-10kg').stock;
     const { status, data } = await req('POST', '/api/orders', {
       customer,
       paymentMethod: 'cash',
       items: [
-        { productId: 'sugar-1kg', qty: 2, price: 1 },
-        { productId: 'rice-1kg', qty: 1 },
-        { productId: 'sugar-1kg', qty: 1 },
+        { productId: 'sugar-10kg', qty: 2, price: 1 },
+        { productId: 'rice-10kg', qty: 1 },
+        { productId: 'sugar-10kg', qty: 1 },
       ],
     });
     assert.equal(status, 201);
     const o = data.order;
     assert.equal(o.status, 'new');
     assert.ok(o.number > 1000);
-    const sugar = o.items.find((i) => i.productId === 'sugar-1kg');
+    const sugar = o.items.find((i) => i.productId === 'sugar-10kg');
     assert.equal(sugar.qty, 3, 'المنتج المكرر بيتجمع');
-    assert.equal(sugar.price, 38);
-    assert.equal(o.subtotal, 38 * 3 + 42);
-    assert.equal(o.deliveryFee, 20);
-    assert.equal(o.total, 38 * 3 + 42 + 20);
-    assert.equal(srv.store.data.products.find((p) => p.id === 'sugar-1kg').stock, before - 3);
+    assert.equal(sugar.price, 350);
+    assert.equal(sugar.marketPrice, 400);
+    assert.equal(o.subtotal, 350 * 3 + 380);
+    assert.equal(o.deliveryFee, 50);
+    assert.equal(o.total, 350 * 3 + 380 + 50);
+    assert.equal(o.savings, 50 * 3 + 60);
+    assert.equal(srv.product('sugar-10kg').stock, before - 3);
   });
 
   test('توصيل مجاني فوق الحد', async () => {
     const { status, data } = await req('POST', '/api/orders', {
       customer,
-      items: [{ productId: 'rice-5kg', qty: 3 }],
+      items: [{ productId: 'oil-carton', qty: 3 }],
     });
     assert.equal(status, 201);
-    assert.equal(data.order.subtotal, 597);
+    assert.equal(data.order.subtotal, 3060);
     assert.equal(data.order.deliveryFee, 0);
-    assert.equal(data.order.total, 597);
+    assert.equal(data.order.total, 3060);
   });
 
   test('بيقبل الأرقام العربية في الموبايل', async () => {
     const { status, data } = await req('POST', '/api/orders', {
       customer: { ...customer, phone: '٠١١٢٣٤٥٦٧٨٩' },
-      items: [{ productId: 'tea-loose', qty: 1 }],
+      items: [{ productId: 'tea-loose-1kg', qty: 3 }],
     });
     assert.equal(status, 201);
     assert.equal(data.order.customer.phone, '01123456789');
   });
 
   test('بيرفض البيانات الغلط', async () => {
+    const ok = [{ productId: 'salt-pack', qty: 20 }];
     const cases = [
-      [{ customer: { ...customer, phone: '12345' }, items: [{ productId: 'salt', qty: 5 }] }, 400],
-      [{ customer: { ...customer, name: '' }, items: [{ productId: 'salt', qty: 5 }] }, 400],
-      [{ customer: { ...customer, address: '' }, items: [{ productId: 'salt', qty: 5 }] }, 400],
+      [{ customer: { ...customer, phone: '12345' }, items: ok }, 400],
+      [{ customer: { ...customer, name: '' }, items: ok }, 400],
+      [{ customer: { ...customer, address: '' }, items: ok }, 400],
       [{ customer, items: [] }, 400],
-      [{ customer, items: [{ productId: 'salt', qty: 0 }] }, 400],
-      [{ customer, items: [{ productId: 'salt', qty: 1.5 }] }, 400],
-      [{ customer, items: [{ productId: 'salt', qty: 1 }] }, 400], // أقل من الحد الأدنى
+      [{ customer, items: [{ productId: 'salt-pack', qty: 0 }] }, 400],
+      [{ customer, items: [{ productId: 'salt-pack', qty: 1.5 }] }, 400],
+      [{ customer, items: [{ productId: 'salt-pack', qty: 21 }] }, 400], // أكتر من أقصى كمية
+      [{ customer, items: [{ productId: 'salt-pack', qty: 1 }] }, 400], // أقل من الحد الأدنى للطلب
       [{ customer, items: [null] }, 400],
-      [{ customer, items: [{ productId: 'salt', qty: 5 }], paymentMethod: 'bitcoin' }, 400],
+      [{ customer, items: ok, paymentMethod: 'bitcoin' }, 400],
     ];
     for (const [body, expected] of cases) {
       const { status, data } = await req('POST', '/api/orders', body);
@@ -151,25 +176,27 @@ describe('واجهة المتجر', () => {
   });
 
   test('بيرفض منتج مش موجود أو كمية أكبر من المخزون', async () => {
-    const ghee = srv.store.data.products.find((p) => p.id === 'ghee');
-    const res1 = await req('POST', '/api/orders', { customer, items: [{ productId: 'nope', qty: 1 }, { productId: 'rice-1kg', qty: 2 }] });
+    const res1 = await req('POST', '/api/orders', { customer, items: [{ productId: 'nope', qty: 1 }, { productId: 'rice-10kg', qty: 3 }] });
     assert.equal(res1.status, 409);
     assert.deepEqual(res1.data.details, [{ productId: 'nope', reason: 'unavailable', available: 0 }]);
 
-    const stock = ghee.stock;
-    const res2 = await req('POST', '/api/orders', { customer, items: [{ productId: 'ghee', qty: stock + 1 }] });
+    const coffee = srv.product('coffee-1kg');
+    const stock = coffee.stock;
+    assert.ok(stock < 20);
+    const res2 = await req('POST', '/api/orders', { customer, items: [{ productId: 'coffee-1kg', qty: stock + 1 }] });
     assert.equal(res2.status, 409);
     assert.equal(res2.data.details[0].available, stock);
-    assert.equal(ghee.stock, stock, 'المخزون ميتغيرش لو الطلب اترفض');
+    assert.equal(coffee.stock, stock, 'المخزون ميتغيرش لو الطلب اترفض');
   });
 
   test('تتبع الطلب برقم الطلب والموبايل بس', async () => {
-    const { data } = await req('POST', '/api/orders', { customer, items: [{ productId: 'coffee', qty: 1 }] });
+    const { data } = await req('POST', '/api/orders', { customer, items: [{ productId: 'coffee-1kg', qty: 2 }] });
     const number = data.order.number;
     const ok = await req('POST', '/api/orders/track', { number: String(number), phone: '+201012345678' });
     assert.equal(ok.status, 200);
     assert.equal(ok.data.order.number, number);
     assert.equal(ok.data.order.id, undefined);
+    assert.equal(ok.data.order.savings, 200);
     const wrong = await req('POST', '/api/orders/track', { number, phone: '01099999999' });
     assert.equal(wrong.status, 404);
   });
@@ -200,6 +227,8 @@ describe('لوحة التحكم', () => {
       ['GET', '/api/admin/orders'],
       ['GET', '/api/admin/stats'],
       ['POST', '/api/admin/products'],
+      ['GET', '/api/admin/bundles'],
+      ['POST', '/api/admin/bundles'],
       ['PUT', '/api/admin/settings'],
       ['POST', '/api/admin/upload'],
     ]) {
@@ -221,9 +250,9 @@ describe('لوحة التحكم', () => {
   });
 
   test('تغيير حالة الطلب والإلغاء بيرجع المخزون', async () => {
-    const product = srv.store.data.products.find((p) => p.id === 'oil-sunflower');
+    const product = srv.product('oil-5l');
     const startStock = product.stock;
-    const { data } = await req('POST', '/api/orders', { customer, items: [{ productId: 'oil-sunflower', qty: 4 }] });
+    const { data } = await req('POST', '/api/orders', { customer, items: [{ productId: 'oil-5l', qty: 4 }] });
     assert.equal(product.stock, startStock - 4);
 
     const list = await req('GET', '/api/admin/orders?status=new');
@@ -251,30 +280,38 @@ describe('لوحة التحكم', () => {
   });
 
   test('الإحصائيات', async () => {
-    await req('POST', '/api/orders', { customer, items: [{ productId: 'tea-bags', qty: 2 }] });
+    await req('POST', '/api/orders', { customer, items: [{ productId: 'tea-bags-carton', qty: 2 }] });
     const { status, data } = await req('GET', '/api/admin/stats');
     assert.equal(status, 200);
     assert.equal(data.ordersToday, 1, 'الطلب الملغي مش محسوب');
-    assert.equal(data.revenueToday, 260);
+    assert.equal(data.revenueToday, 1430);
+    assert.equal(data.avgOrderValue, 1430);
     assert.equal(data.last7Days.length, 7);
-    assert.equal(data.last7Days.at(-1).revenue, 260);
-    assert.equal(data.topProducts[0].productId, 'tea-bags');
+    assert.equal(data.last7Days.at(-1).revenue, 1430);
+    assert.equal(data.topProducts[0].productId, 'tea-bags-carton');
   });
 
   test('إضافة وتعديل وإخفاء وحذف منتج', async () => {
     const created = await req('POST', '/api/admin/products', {
       name: 'فول مدمس معلب',
       categoryId: 'legumes',
-      unit: '400 جرام',
-      price: '22.5',
-      oldPrice: '20',
+      unit: 'كرتونة 12 علبة × 400 جرام',
+      price: '240.5',
+      marketPrice: '200',
+      unitCount: '12',
+      unitName: 'علبة',
       stock: '10',
     });
     assert.equal(created.status, 201);
     const p = created.data.product;
-    assert.equal(p.price, 22.5);
-    assert.equal(p.oldPrice, null, 'السعر القديم لازم يكون أكبر من الحالي');
+    assert.equal(p.price, 240.5);
+    assert.equal(p.marketPrice, null, 'سعر السوق لازم يكون أكبر من سعر الجملة');
+    assert.equal(p.unitCount, 12);
+    assert.equal(p.unitName, 'علبة');
     assert.equal(p.image, '/images/products/placeholder.svg');
+
+    const noName = await req('PUT', `/api/admin/products/${p.id}`, { unitName: '' });
+    assert.equal(noName.data.product.unitCount, null, 'من غير اسم الوحدة مفيش سعر للوحدة');
 
     let store = await req('GET', '/api/store');
     assert.ok(store.data.products.some((x) => x.id === p.id));
@@ -284,7 +321,7 @@ describe('لوحة التحكم', () => {
     assert.equal(hidden.data.product.name, 'فول مدمس معلب', 'التعديل الجزئي ميمسحش باقي البيانات');
     store = await req('GET', '/api/store');
     assert.ok(!store.data.products.some((x) => x.id === p.id));
-    const order = await req('POST', '/api/orders', { customer, items: [{ productId: p.id, qty: 3 }] });
+    const order = await req('POST', '/api/orders', { customer, items: [{ productId: p.id, qty: 5 }] });
     assert.equal(order.status, 409, 'المنتج المخفي ميتطلبش');
 
     const badCat = await req('PUT', `/api/admin/products/${p.id}`, { categoryId: 'nope' });
@@ -296,6 +333,50 @@ describe('لوحة التحكم', () => {
     assert.equal(del.status, 200);
     const gone = await req('PUT', `/api/admin/products/${p.id}`, { active: true });
     assert.equal(gone.status, 404);
+  });
+
+  test('الخزين الجاهز: إضافة وتعديل وإخفاء وحذف', async () => {
+    const list = await req('GET', '/api/admin/bundles');
+    assert.equal(list.status, 200);
+    assert.equal(list.data.bundles.length, 3);
+    assert.ok(list.data.products.length >= 25);
+
+    assert.equal((await req('POST', '/api/admin/bundles', { name: 'فاضي', items: [] })).status, 400);
+    assert.equal((await req('POST', '/api/admin/bundles', { name: 'غلط', items: [{ productId: 'nope', qty: 1 }] })).status, 400);
+    assert.equal((await req('POST', '/api/admin/bundles', { name: 'كتير', items: [{ productId: 'salt-pack', qty: 99 }] })).status, 400);
+
+    const created = await req('POST', '/api/admin/bundles', {
+      name: 'خزين عزّاب',
+      description: 'لفرد واحد',
+      icon: '🧑',
+      items: [
+        { productId: 'sugar-5kg', qty: 1 },
+        { productId: 'sugar-5kg', qty: 1 },
+        { productId: 'pasta-carton', qty: 1 },
+        { productId: 'tea-loose-1kg', qty: 1 },
+      ],
+    });
+    assert.equal(created.status, 201);
+    const b = created.data.bundle;
+    assert.deepEqual(b.items[0], { productId: 'sugar-5kg', qty: 2 }, 'المنتج المكرر بيتجمع');
+
+    let store = await req('GET', '/api/store');
+    const shown = store.data.bundles.find((x) => x.id === b.id);
+    assert.equal(shown.total, 178 * 2 + 320 + 360);
+
+    await req('PUT', `/api/admin/bundles/${b.id}`, { active: false });
+    store = await req('GET', '/api/store');
+    assert.ok(!store.data.bundles.some((x) => x.id === b.id), 'الخزين المخفي ميظهرش');
+
+    // لو منتج اتمسح بيتشال من الخزين
+    await req('DELETE', '/api/admin/products/pasta-carton');
+    const after = await req('GET', '/api/admin/bundles');
+    const updated = after.data.bundles.find((x) => x.id === b.id);
+    assert.ok(!updated.items.some((it) => it.productId === 'pasta-carton'));
+    assert.equal(updated.name, 'خزين عزّاب');
+
+    assert.equal((await req('DELETE', `/api/admin/bundles/${b.id}`)).status, 200);
+    assert.equal((await req('PUT', `/api/admin/bundles/${b.id}`, { active: true })).status, 404);
   });
 
   test('الأقسام', async () => {
@@ -383,18 +464,20 @@ describe('الحماية من الطلبات المزعجة', () => {
   let srv;
   before(async () => {
     srv = await startServer();
+    srv.product('salt-pack').stock = 1000;
   });
   after(() => srv.close());
 
   test('أكتر من 10 طلبات لنفس الموبايل في الساعة بتترفض', async () => {
     const req = client(srv.base);
+    const items = [{ productId: 'salt-pack', qty: 20 }];
     for (let i = 0; i < 10; i++) {
-      const { status } = await req('POST', '/api/orders', { customer, items: [{ productId: 'salt', qty: 5 }] });
+      const { status } = await req('POST', '/api/orders', { customer, items });
       assert.equal(status, 201);
     }
-    const blocked = await req('POST', '/api/orders', { customer, items: [{ productId: 'salt', qty: 5 }] });
+    const blocked = await req('POST', '/api/orders', { customer, items });
     assert.equal(blocked.status, 429);
-    const otherPhone = await req('POST', '/api/orders', { customer: { ...customer, phone: '01512345678' }, items: [{ productId: 'salt', qty: 5 }] });
+    const otherPhone = await req('POST', '/api/orders', { customer: { ...customer, phone: '01512345678' }, items });
     assert.equal(otherPhone.status, 201, 'عميل تاني من نفس الشبكة يقدر يطلب');
   });
 
@@ -402,5 +485,40 @@ describe('الحماية من الطلبات المزعجة', () => {
     const req = client(srv.base);
     for (let i = 0; i < 10; i++) assert.equal((await req('POST', '/api/admin/login', { password: 'x' })).status, 401);
     assert.equal((await req('POST', '/api/admin/login', { password: 'admin123' })).status, 429);
+  });
+});
+
+describe('تحديث البيانات القديمة', () => {
+  let srv;
+  before(async () => {
+    srv = await startServer({
+      prepare(dir) {
+        const old = {
+          version: 1,
+          settings: { storeName: 'متجري' },
+          admin: { passwordHash: null },
+          categories: [{ id: 'basics', name: 'أساسيات', icon: '🍚', sort: 1 }],
+          products: [
+            { id: 'old-sugar', name: 'سكر', categoryId: 'basics', unit: '1 كيلو', price: 38, oldPrice: 42, stock: 5, featured: false, description: '', image: '/images/products/sugar-1kg.svg', active: true, sort: 1 },
+          ],
+          orders: [],
+          counters: { order: 1000 },
+        };
+        fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify(old));
+      },
+    });
+  });
+  after(() => srv.close());
+
+  test('oldPrice بيتحول لسعر السوق والخزين الجاهز بيتضاف', async () => {
+    const p = srv.product('old-sugar');
+    assert.equal(p.marketPrice, 42);
+    assert.equal('oldPrice' in p, false);
+    assert.equal(p.unitCount, null);
+    assert.deepEqual(srv.store.data.bundles, []);
+    assert.equal(srv.store.data.settings.storeName, 'متجري', 'الإعدادات القديمة متتمسحش');
+    const { data } = await client(srv.base)('GET', '/api/store');
+    assert.equal(data.products[0].marketPrice, 42);
+    assert.deepEqual(data.bundles, []);
   });
 });

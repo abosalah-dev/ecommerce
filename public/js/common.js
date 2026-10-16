@@ -47,6 +47,8 @@
     whatsapp: '<path d="M4 20l1.3-4A8 8 0 1 1 8 19z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1a4 4 0 0 1-2-2l1-1-1-2z"/>',
     box: '<path d="M3 7l9-4 9 4-9 4zM3 7v10l9 4 9-4V7M12 11v10"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    home: '<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   };
   KM.icon = function icon(name, cls = 'icon') {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -185,6 +187,28 @@
     add(id, qty = 1) {
       this.set(id, this.qty(id) + qty);
     },
+    // بيضيف مجموعة منتجات مرة واحدة (خزين جاهز أو تكرار طلب قديم)
+    // وبيرجع عدد اللي اتضاف واللي مش متوفر
+    addMany(entries, store) {
+      const items = this.items();
+      let added = 0;
+      const missing = [];
+      for (const { productId, qty } of entries) {
+        const product = store.productMap.get(productId);
+        const max = product ? KM.maxQty(product, store.settings) : 0;
+        const current = items[productId] || 0;
+        if (max <= 0 || current >= max) {
+          if (product && current >= max && max > 0) added += 1;
+          else missing.push(product ? product.name : productId);
+          continue;
+        }
+        items[productId] = Math.min(max, current + qty);
+        added += 1;
+      }
+      storage.set(CART_KEY, items);
+      window.dispatchEvent(new CustomEvent('cart:change', { detail: {} }));
+      return { added, missing };
+    },
     clear() {
       storage.set(CART_KEY, {});
       window.dispatchEvent(new CustomEvent('cart:change', { detail: {} }));
@@ -216,13 +240,27 @@
 
   KM.maxQty = (product, settings) => Math.max(0, Math.min(product.stock, settings.maxQtyPerItem));
 
+  // "صنف واحد" / "3 أصناف" / "12 صنف"
+  KM.itemsCount = (n) => (n === 1 ? 'صنف واحد' : n === 2 ? 'صنفين' : n <= 10 ? `${n} أصناف` : `${n} صنف`);
+
+  // نسبة التوفير عن سعر السوق
+  KM.savingPercent = (p) => (p.marketPrice && p.marketPrice > p.price ? Math.round((1 - p.price / p.marketPrice) * 100) : 0);
+  // "سعر الكيلو 35 ج.م"
+  KM.perUnitText = (p) => {
+    if (!p.unitCount || p.unitCount < 2 || !p.unitName) return '';
+    const name = p.unitName.startsWith('ال') ? p.unitName : `ال${p.unitName}`;
+    return `سعر ${name} ${KM.money(Math.round((p.price / p.unitCount) * 100) / 100)}`;
+  };
+
   KM.totals = function totals(lines, settings) {
     const subtotalCents = lines.reduce((s, l) => s + cents(l.product.price) * l.qty, 0);
+    const marketCents = lines.reduce((s, l) => s + cents(l.product.marketPrice || l.product.price) * l.qty, 0);
     const threshold = cents(settings.freeDeliveryThreshold);
     const free = threshold > 0 && subtotalCents >= threshold;
     const deliveryCents = lines.length === 0 || free ? 0 : cents(settings.deliveryFee);
     return {
       subtotal: subtotalCents / 100,
+      savings: (marketCents - subtotalCents) / 100,
       deliveryFee: deliveryCents / 100,
       total: (subtotalCents + deliveryCents) / 100,
       freeDelivery: free,
@@ -230,6 +268,7 @@
       progress: threshold > 0 ? Math.min(1, subtotalCents / threshold) : 1,
       belowMin: subtotalCents < cents(settings.minOrder),
       remainingForMin: Math.max(0, cents(settings.minOrder) - subtotalCents) / 100,
+      minProgress: settings.minOrder > 0 ? Math.min(1, subtotalCents / cents(settings.minOrder)) : 1,
     };
   };
 
@@ -307,7 +346,7 @@
           'div',
           null,
           h('a', { href: '/', class: 'logo' }, h('img', { src: '/images/logo.svg', alt: '', width: 40, height: 40 }), s.storeName),
-          h('p', { text: `${s.tagline}. منتجات أصلية بأسعار مناسبة، والدفع عند الاستلام.` })
+          h('p', { text: `${s.tagline}. منتجات أصلية بالكرتونة والشيكارة، توصيل لحد البيت والدفع عند الاستلام.` })
         ),
         h(
           'div',

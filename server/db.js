@@ -23,11 +23,39 @@ class JsonStore {
       this.data.settings = { ...defaultSettings, ...this.data.settings };
       this.data.admin = this.data.admin || { passwordHash: null };
       this.data.counters = this.data.counters || { order: 1000 };
+      this.migrate();
     } else {
       this.data = createSeed();
       this.save();
     }
     return this;
+  }
+
+  // تحديث البيانات القديمة لشكل النسخة الجديدة
+  migrate() {
+    const d = this.data;
+    let changed = false;
+    for (const p of d.products) {
+      if ('oldPrice' in p) {
+        if (p.marketPrice === undefined) p.marketPrice = p.oldPrice;
+        delete p.oldPrice;
+        changed = true;
+      }
+      if (p.marketPrice === undefined) {
+        p.marketPrice = null;
+        changed = true;
+      }
+      if (p.unitCount === undefined) {
+        p.unitCount = null;
+        p.unitName = '';
+        changed = true;
+      }
+    }
+    if (!Array.isArray(d.bundles)) {
+      d.bundles = [];
+      changed = true;
+    }
+    if (changed) this.save();
   }
 
   save() {

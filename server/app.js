@@ -71,7 +71,9 @@ function publicProduct(p) {
     categoryId: p.categoryId,
     unit: p.unit,
     price: p.price,
-    oldPrice: p.oldPrice,
+    marketPrice: p.marketPrice,
+    unitCount: p.unitCount,
+    unitName: p.unitName,
     stock: p.stock,
     featured: p.featured,
     description: p.description,
@@ -91,6 +93,26 @@ function publicOrder(o) {
     subtotal: o.subtotal,
     deliveryFee: o.deliveryFee,
     total: o.total,
+    savings: o.savings || 0,
+  };
+}
+
+// الخزين الجاهز للعرض: بنشيل المنتجات المخفية أو الممسوحة ونحسب السعر الحالي
+function publicBundle(b, productMap) {
+  const items = b.items
+    .map((it) => ({ ...it, product: productMap.get(it.productId) }))
+    .filter((it) => it.product);
+  const total = items.reduce((s, it) => s + toCents(it.product.price) * it.qty, 0);
+  const market = items.reduce((s, it) => s + toCents(it.product.marketPrice || it.product.price) * it.qty, 0);
+  return {
+    id: b.id,
+    name: b.name,
+    description: b.description,
+    icon: b.icon,
+    items: items.map((it) => ({ productId: it.productId, qty: it.qty })),
+    total: fromCents(total),
+    marketTotal: fromCents(market),
+    savings: fromCents(market - total),
   };
 }
 
@@ -134,10 +156,17 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
 
   app.get('/api/store', (req, res) => {
     const d = db();
+    const products = d.products.filter((p) => p.active).sort(bySort);
+    const productMap = new Map(products.map((p) => [p.id, p]));
     res.json({
       settings: publicSettings(d.settings),
       categories: [...d.categories].sort(bySort),
-      products: d.products.filter((p) => p.active).sort(bySort).map(publicProduct),
+      products: products.map(publicProduct),
+      bundles: d.bundles
+        .filter((b) => b.active)
+        .sort(bySort)
+        .map((b) => publicBundle(b, productMap))
+        .filter((b) => b.items.length > 0),
     });
   });
 
@@ -198,10 +227,15 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       unit: product.unit,
       image: product.image,
       price: product.price,
+      marketPrice: product.marketPrice || null,
       qty,
       total: fromCents(toCents(product.price) * qty),
     }));
     const subtotalCents = items.reduce((sum, it) => sum + toCents(it.price) * it.qty, 0);
+    const savingsCents = items.reduce(
+      (sum, it) => sum + (it.marketPrice ? (toCents(it.marketPrice) - toCents(it.price)) * it.qty : 0),
+      0
+    );
     if (subtotalCents < toCents(s.minOrder)) {
       throw bad(`الحد الأدنى للطلب ${s.minOrder} جنيه`);
     }
@@ -227,6 +261,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       subtotal: fromCents(subtotalCents),
       deliveryFee: fromCents(deliveryCents),
       total: fromCents(subtotalCents + deliveryCents),
+      savings: fromCents(savingsCents),
     };
     d.orders.push(order);
     store.save();
@@ -316,6 +351,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       newOrders: d.orders.filter((o) => o.status === 'new').length,
       pendingOrders: d.orders.filter((o) => ['new', 'preparing', 'delivering'].includes(o.status)).length,
       totalOrders: d.orders.length,
+      avgOrderValue: active.length ? fromCents(active.reduce((s, o) => s + toCents(o.total), 0) / active.length) : 0,
       deliveredRevenue: fromCents(
         d.orders.filter((o) => o.status === 'delivered').reduce((s, o) => s + toCents(o.total), 0)
       ),
@@ -392,17 +428,21 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     const src = { ...base, ...(body || {}) };
     const categoryId = v.text(src.categoryId, { field: 'القسم', max: 60, required: true });
     if (!d.categories.some((c) => c.id === categoryId)) throw bad('القسم مش موجود');
-    const price = v.number(src.price, { field: 'السعر', min: 0, max: 1e6 });
-    let oldPrice = v.number(src.oldPrice, { field: 'السعر قبل الخصم', min: 0, max: 1e6, nullable: true });
-    if (oldPrice !== null && oldPrice <= price) oldPrice = null;
+    const price = v.number(src.price, { field: 'سعر الجملة', min: 0, max: 1e6 });
+    let marketPrice = v.number(src.marketPrice, { field: 'سعر السوق', min: 0, max: 1e6, nullable: true });
+    if (marketPrice !== null && marketPrice <= price) marketPrice = null;
+    const unitCount = v.number(src.unitCount, { field: 'عدد الوحدات', min: 1, max: 10000, integer: true, nullable: true });
+    const unitName = v.text(src.unitName, { field: 'اسم الوحدة', max: 20 });
     const image = v.text(src.image, { field: 'الصورة', max: 300 });
     if (image && !/^\/(images|uploads)\/[\w./-]+$/.test(image)) throw bad('رابط الصورة غير صحيح');
     return {
       name: v.text(src.name, { field: 'اسم المنتج', max: 80, required: true }),
       categoryId,
-      unit: v.text(src.unit, { field: 'الوزن / الحجم', max: 40 }),
+      unit: v.text(src.unit, { field: 'العبوة', max: 60 }),
       price,
-      oldPrice,
+      marketPrice,
+      unitCount: unitCount && unitName ? unitCount : null,
+      unitName: unitCount && unitName ? unitName : '',
       stock: v.number(src.stock ?? 0, { field: 'المخزون', min: 0, max: 1e6, integer: true }),
       description: v.text(src.description, { field: 'الوصف', max: 500 }),
       image: image || '/images/products/placeholder.svg',
@@ -446,6 +486,74 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     const d = db();
     const product = findProduct(req.params.id);
     d.products = d.products.filter((p) => p !== product);
+    for (const b of d.bundles) b.items = b.items.filter((it) => it.productId !== product.id);
+    store.save();
+    res.json({ ok: true });
+  });
+
+  // ---- الخزين الجاهز ----
+
+  function parseBundle(body, base = {}) {
+    const d = db();
+    const src = { ...base, ...(body || {}) };
+    if (!Array.isArray(src.items) || src.items.length === 0) throw bad('ضيف منتج واحد على الأقل للخزين');
+    if (src.items.length > 60) throw bad('عدد المنتجات كبير جداً');
+    const merged = new Map();
+    for (const raw of src.items) {
+      const item = raw && typeof raw === 'object' ? raw : {};
+      const productId = v.text(item.productId, { field: 'المنتج', max: 60, required: true });
+      if (!d.products.some((p) => p.id === productId)) throw bad('في منتج في الخزين مش موجود');
+      const qty = v.number(item.qty, { field: 'الكمية', min: 1, max: d.settings.maxQtyPerItem, integer: true });
+      merged.set(productId, Math.min(d.settings.maxQtyPerItem, (merged.get(productId) || 0) + qty));
+    }
+    return {
+      name: v.text(src.name, { field: 'اسم الخزين', max: 60, required: true }),
+      description: v.text(src.description, { field: 'الوصف', max: 120 }),
+      icon: v.text(src.icon, { field: 'الأيقونة', max: 16 }) || '📦',
+      items: [...merged].map(([productId, qty]) => ({ productId, qty })),
+      active: src.active === undefined ? true : v.bool(src.active),
+      sort: v.number(src.sort ?? 0, { field: 'الترتيب', min: 0, max: 1e6, integer: true }),
+    };
+  }
+
+  function findBundle(id) {
+    const bundle = db().bundles.find((b) => b.id === id);
+    if (!bundle) throw new HttpError(404, 'الخزين ده مش موجود');
+    return bundle;
+  }
+
+  app.get('/api/admin/bundles', (req, res) => {
+    const d = db();
+    const productMap = new Map(d.products.map((p) => [p.id, p]));
+    res.json({
+      bundles: [...d.bundles].sort(bySort).map((b) => ({ ...b, ...publicBundle(b, productMap), items: b.items, active: b.active, sort: b.sort })),
+      products: [...d.products].sort(bySort).map((p) => ({ id: p.id, name: p.name, unit: p.unit, price: p.price, image: p.image, active: p.active })),
+    });
+  });
+
+  app.post('/api/admin/bundles', (req, res) => {
+    const d = db();
+    const data = parseBundle(req.body);
+    if (!req.body || req.body.sort === undefined) {
+      data.sort = d.bundles.reduce((m, b) => Math.max(m, b.sort || 0), 0) + 1;
+    }
+    const bundle = { id: randomId('b'), ...data };
+    d.bundles.push(bundle);
+    store.save();
+    res.status(201).json({ bundle });
+  });
+
+  app.put('/api/admin/bundles/:id', (req, res) => {
+    const bundle = findBundle(req.params.id);
+    Object.assign(bundle, parseBundle(req.body, bundle));
+    store.save();
+    res.json({ bundle });
+  });
+
+  app.delete('/api/admin/bundles/:id', (req, res) => {
+    const d = db();
+    const bundle = findBundle(req.params.id);
+    d.bundles = d.bundles.filter((b) => b !== bundle);
     store.save();
     res.json({ ok: true });
   });

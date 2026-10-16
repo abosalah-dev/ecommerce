@@ -56,10 +56,81 @@
       $('searchInput').value = state.query;
     }
 
+    const s = state.store.settings;
+    document.querySelectorAll('[data-free-delivery]').forEach((el) => {
+      el.textContent = s.freeDeliveryThreshold > 0 ? `ومجاني فوق ${KM.money(s.freeDeliveryThreshold)}` : 'لحد باب البيت';
+    });
+
+    const flash = KM.storage.get('km_flash', null);
+    if (flash) {
+      KM.storage.set('km_flash', null);
+      setTimeout(() => KM.toast(String(flash)), 300);
+    }
+
+    renderBundles();
     renderChips();
     renderGrid();
     renderCart();
     if (params.get('cart') === '1') openCart();
+  }
+
+  /* ------------------------------- الخزين الجاهز ------------------------------- */
+
+  function renderBundles() {
+    const { bundles, productMap } = state.store;
+    const section = $('bundles');
+    const list = (bundles || []).filter((b) => b.items.some((it) => productMap.has(it.productId)));
+    section.hidden = list.length === 0;
+    $('bundleGrid').replaceChildren(...list.map(bundleCard));
+  }
+
+  function bundleCard(b) {
+    const { productMap } = state.store;
+    const items = b.items.map((it) => ({ ...it, product: productMap.get(it.productId) })).filter((it) => it.product);
+    const images = [...new Set(items.map((it) => it.product.image))].slice(0, 4);
+    const thumbs = images.map((src) => h('img', { src, alt: '', width: 72, height: 72, loading: 'lazy' }));
+    const line = (it) =>
+      h(
+        'li',
+        { class: it.product.stock <= 0 ? 'unavailable' : '' },
+        h('span', { text: `${it.product.name} (${it.product.unit})` }),
+        h('span', { class: 'qty', text: `× ${it.qty}` })
+      );
+    const shown = items.slice(0, 5);
+    const rest = items.slice(5);
+    return h(
+      'article',
+      { class: 'bundle' },
+      h(
+        'div',
+        { class: 'bundle-head' },
+        h('div', { class: 'bundle-thumbs', 'aria-hidden': 'true' }, thumbs),
+        h('span', { class: 'bundle-icon', text: b.icon, 'aria-hidden': 'true' })
+      ),
+      h('h3', { class: 'bundle-name', text: b.name }),
+      h('p', { class: 'muted', text: `${b.description ? `${b.description} • ` : ''}${KM.itemsCount(items.length)}` }),
+      h('ul', { class: 'bundle-items' }, shown.map(line)),
+      rest.length
+        ? h('details', { class: 'bundle-more' }, h('summary', { text: `+ ${KM.itemsCount(rest.length)} كمان` }), h('ul', { class: 'bundle-items' }, rest.map(line)))
+        : null,
+      h(
+        'div',
+        { class: 'bundle-price' },
+        h('div', null, KM.moneyEl(b.total), b.savings > 0 ? h('span', { class: 'old-price', text: KM.money(b.marketTotal) }) : null),
+        b.savings > 0 ? h('span', { class: 'save-badge', text: `هتوفر ${KM.money(b.savings)}` }) : null
+      ),
+      h('button', { type: 'button', class: 'btn btn-primary btn-block', onclick: () => addBundle(b) }, KM.icon('cart'), 'أضف الخزين ده للسلة')
+    );
+  }
+
+  function addBundle(b) {
+    const { added, missing } = KM.cart.addMany(b.items, state.store);
+    if (!added) {
+      KM.toast('منتجات الخزين ده مش متوفرة دلوقتي', 'error');
+      return;
+    }
+    KM.toast(missing.length ? `اتضاف ${b.name} • ${missing.length} صنف مش متوفر حالياً` : `اتضاف ${b.name} للسلة 📦`);
+    openCart();
   }
 
   /* --------------------------------- الأقسام --------------------------------- */
@@ -103,7 +174,7 @@
         return words.every((w) => hay.includes(w));
       });
     }
-    const discount = (p) => (p.oldPrice ? 1 - p.price / p.oldPrice : 0);
+    const discount = (p) => (p.marketPrice ? 1 - p.price / p.marketPrice : 0);
     const inStock = (p) => (p.stock > 0 ? 0 : 1);
     const sorters = {
       default: (a, b) => inStock(a) - inStock(b) || Number(b.featured) - Number(a.featured),
@@ -122,11 +193,10 @@
     $('resultsCount').textContent = list.length ? `${list.length} منتج` : '';
   }
 
-  const discountPercent = (p) => (p.oldPrice && p.oldPrice > p.price ? Math.round((1 - p.price / p.oldPrice) * 100) : 0);
-
   function productCard(p) {
     const out = p.stock <= 0;
-    const discount = discountPercent(p);
+    const discount = KM.savingPercent(p);
+    const perUnit = KM.perUnitText(p);
     const open = () => openProduct(p);
     return h(
       'article',
@@ -134,7 +204,7 @@
       h(
         'button',
         { type: 'button', class: 'card-media', 'aria-label': `تفاصيل ${p.name}`, onclick: open },
-        out ? h('span', { class: 'tag tag-out', text: 'نفدت الكمية' }) : discount ? h('span', { class: 'tag', text: `خصم ${discount}%` }) : null,
+        out ? h('span', { class: 'tag tag-out', text: 'نفدت الكمية' }) : discount ? h('span', { class: 'tag', text: `أرخص من السوق ${discount}%` }) : null,
         p.featured && !out ? h('span', { class: 'tag tag-featured', text: 'الأكثر طلباً' }) : null,
         h('img', { src: p.image, alt: p.name, loading: 'lazy', width: 400, height: 400 })
       ),
@@ -147,9 +217,10 @@
           'div',
           { class: 'price-row' },
           KM.moneyEl(p.price),
-          discount ? h('span', { class: 'old-price', text: KM.money(p.oldPrice) }) : null,
-          !out && p.stock <= 5 ? h('span', { class: 'low-stock', text: `باقي ${p.stock} بس` }) : null
+          discount ? h('span', { class: 'old-price', title: 'سعر السوق', text: KM.money(p.marketPrice) }) : null
         ),
+        perUnit ? h('span', { class: 'per-unit', text: perUnit }) : null,
+        !out && p.stock <= 5 ? h('span', { class: 'low-stock', text: `باقي ${p.stock} بس` }) : null,
         h('div', { class: 'card-actions' }, cartControl(p))
       )
     );
@@ -214,7 +285,8 @@
     const p = state.modalProduct;
     if (!p) return;
     const category = state.store.categoryMap.get(p.categoryId);
-    const discount = discountPercent(p);
+    const discount = KM.savingPercent(p);
+    const perUnit = KM.perUnitText(p);
     const max = KM.maxQty(p, state.store.settings);
     const qty = KM.cart.qty(p.id);
     let actions;
@@ -234,13 +306,15 @@
           category ? h('span', { class: 'cat', text: `${category.icon} ${category.name}` }) : null,
           h('h2', { id: 'modalTitle', text: p.name }),
           h('span', { class: 'muted', text: p.unit }),
+          h('span', { class: 'wholesale-label', text: 'سعر الجملة' }),
           h(
             'div',
             { class: 'price-row' },
             KM.moneyEl(p.price),
-            discount ? h('span', { class: 'old-price', text: KM.money(p.oldPrice) }) : null,
-            discount ? h('span', { class: 'save-badge', text: `وفّر ${KM.money(p.oldPrice - p.price)}` }) : null
+            discount ? h('span', { class: 'old-price', text: `السوق ${KM.money(p.marketPrice)}` }) : null,
+            discount ? h('span', { class: 'save-badge', text: `وفّر ${KM.money(p.marketPrice - p.price)}` }) : null
           ),
+          perUnit ? h('span', { class: 'per-unit', text: perUnit }) : null,
           p.description ? h('p', { class: 'desc', text: p.description }) : null,
           max > 0 && p.stock <= 5 ? h('span', { class: 'low-stock', text: `باقي ${p.stock} بس في المخزن` }) : null,
           h('div', { class: 'actions' }, actions)
@@ -288,7 +362,7 @@
     const totals = KM.totals(lines, settings);
     const count = lines.reduce((s, l) => s + l.qty, 0);
 
-    $('cartTitle').textContent = count ? `سلة المشتريات (${count})` : 'سلة المشتريات';
+    $('cartTitle').textContent = count ? `سلة الخزين (${count})` : 'سلة الخزين';
 
     if (!lines.length) {
       $('cartItems').replaceChildren(
@@ -297,8 +371,16 @@
           { class: 'empty' },
           h('div', { class: 'empty-emoji', text: '🧺' }),
           h('h3', { text: 'السلة فاضية' }),
-          h('p', { text: 'ضيف منتجات وهتلاقيها هنا' }),
-          h('button', { type: 'button', class: 'btn btn-primary', text: 'ابدأ التسوق', onclick: closeCart })
+          h('p', { text: 'اختار خزين جاهز أو ضيف المنتجات اللي محتاجها للشهر' }),
+          h('button', {
+            type: 'button',
+            class: 'btn btn-primary',
+            text: 'شوف الخزين الجاهز',
+            onclick: () => {
+              closeCart();
+              ($('bundles').hidden ? $('products') : $('bundles')).scrollIntoView({ behavior: 'smooth' });
+            },
+          })
         )
       );
       $('cartSummary').hidden = true;
@@ -327,7 +409,16 @@
       );
 
       const foot = [];
-      if (totals.remainingForFree !== null) {
+      if (totals.belowMin) {
+        foot.push(
+          h(
+            'div',
+            { class: 'free-progress' },
+            `الحد الأدنى للطلب ${KM.money(settings.minOrder)} • باقي ${KM.money(totals.remainingForMin)} 📦`,
+            h('div', { class: 'progress' }, progressBar(totals.minProgress))
+          )
+        );
+      } else if (totals.remainingForFree !== null) {
         foot.push(
           h(
             'div',
@@ -347,8 +438,8 @@
         ),
         h('div', { class: 'summary-row total' }, h('span', { text: 'الإجمالي' }), h('span', { text: KM.money(totals.total) }))
       );
-      if (totals.belowMin) {
-        foot.push(h('p', { class: 'notice', text: `الحد الأدنى للطلب ${KM.money(settings.minOrder)} - ضيف منتجات بـ ${KM.money(totals.remainingForMin)} كمان` }));
+      if (totals.savings > 0) {
+        foot.push(h('p', { class: 'savings-note', text: `🎉 بسعر الجملة وفّرت ${KM.money(totals.savings)} عن أسعار السوق` }));
       }
       const checkout = h('a', { href: '/checkout.html', class: 'btn btn-primary btn-lg btn-block' }, 'إتمام الطلب', KM.icon('arrow'));
       if (totals.belowMin) {

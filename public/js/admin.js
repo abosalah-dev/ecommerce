@@ -9,6 +9,7 @@
     dashboard: 'الرئيسية',
     orders: 'الطلبات',
     products: 'المنتجات',
+    bundles: 'الخزين الجاهز',
     categories: 'الأقسام',
     settings: 'الإعدادات',
   };
@@ -259,6 +260,7 @@
       stat('مبيعات النهارده', moneyValue(s.revenueToday), 'من غير الطلبات الملغية'),
       stat('طلبات جارية', String(s.pendingOrders), 'جديد + تجهيز + في الطريق', { onclick: goOrders('') }),
       stat('إجمالي الطلبات', String(s.totalOrders)),
+      stat('متوسط قيمة الطلب', moneyValue(s.avgOrderValue || 0), 'من غير الطلبات الملغية'),
       stat('مبيعات اتسلمت', moneyValue(s.deliveredRevenue), 'كل الطلبات اللي اتوصلت')
     );
 
@@ -705,7 +707,7 @@
                     'td',
                     { 'data-label': 'السعر', class: 'num' },
                     h('strong', { text: KM.money(p.price) }),
-                    p.oldPrice ? h('div', { class: 'old-price', text: KM.money(p.oldPrice) }) : null
+                    p.marketPrice ? h('div', { class: 'old-price', title: 'سعر السوق', text: KM.money(p.marketPrice) }) : null
                   ),
                   h('td', { 'data-label': 'المخزون' }, h('span', { class: `stock ${stockCls}`, text: p.stock })),
                   h('td', { 'data-label': 'ظاهر في المتجر' }, h('label', { class: 'switch' }, toggle, h('span', { class: 'track' }))),
@@ -792,10 +794,12 @@
         'div',
         { class: 'form-grid' },
         input({ name: 'name', label: 'اسم المنتج', value: p.name, required: true, full: true, maxlength: 80, placeholder: 'مثال: سكر أبيض ناعم' }),
-        input({ name: 'unit', label: 'الوزن / الحجم', value: p.unit, maxlength: 40, placeholder: 'مثال: 1 كيلو' }),
+        input({ name: 'unit', label: 'العبوة', value: p.unit, maxlength: 60, placeholder: 'مثال: كرتونة 10 أكياس × 1 كيلو' }),
         input({ name: 'categoryId', label: 'القسم', value: p.categoryId, options: categories.map((c) => [c.id, `${c.icon} ${c.name}`]) }),
-        money('price', 'السعر (ج.م)', p.price, { required: true }),
-        money('oldPrice', 'السعر قبل الخصم (اختياري)', p.oldPrice, { hint: 'لو حطيته هيظهر خصم على المنتج' }),
+        money('price', 'سعر الجملة (ج.م)', p.price, { required: true }),
+        money('marketPrice', 'سعر السوق / القطاعي (اختياري)', p.marketPrice, { hint: 'عشان العميل يشوف هو بيوفر قد إيه' }),
+        input({ name: 'unitCount', label: 'عدد الوحدات في العبوة (اختياري)', value: p.unitCount ?? '', type: 'number', min: '1', step: '1', inputmode: 'numeric', dir: 'ltr', placeholder: 'مثال: 10' }),
+        input({ name: 'unitName', label: 'اسم الوحدة (اختياري)', value: p.unitName, maxlength: 20, placeholder: 'كيلو / لتر / رول / علبة', hint: 'عشان يظهر للعميل "سعر الكيلو" مثلاً' }),
         input({ name: 'stock', label: 'الكمية في المخزن', value: p.stock, type: 'number', min: '0', step: '1', inputmode: 'numeric', dir: 'ltr' }),
         input({ name: 'sort', label: 'الترتيب', value: p.sort ?? '', type: 'number', min: '0', step: '1', inputmode: 'numeric', dir: 'ltr', hint: 'الرقم الأصغر يظهر الأول' }),
         input({ name: 'description', label: 'الوصف', value: p.description, textarea: true, full: true, maxlength: 500 }),
@@ -849,7 +853,9 @@
         unit: f.unit.value,
         categoryId: f.categoryId.value,
         price: f.price.value,
-        oldPrice: f.oldPrice.value === '' ? null : f.oldPrice.value,
+        marketPrice: f.marketPrice.value === '' ? null : f.marketPrice.value,
+        unitCount: f.unitCount.value === '' ? null : f.unitCount.value,
+        unitName: f.unitName.value,
         stock: f.stock.value === '' ? 0 : f.stock.value,
         description: f.description.value,
         image: f.image.value,
@@ -1020,6 +1026,191 @@
 
   /* --------------------------------- الإعدادات --------------------------------- */
 
+  /* -------------------------------- الخزين الجاهز -------------------------------- */
+
+  async function renderBundles() {
+    const token = state.renderToken;
+    let data;
+    try {
+      data = await api('/api/admin/bundles');
+    } catch (err) {
+      if (token === state.renderToken) $('view').replaceChildren(errorBox(err, renderBundles));
+      return;
+    }
+    if (token !== state.renderToken) return;
+    const { bundles, products } = data;
+
+    $('viewActions').replaceChildren(h('button', { type: 'button', class: 'btn btn-primary', onclick: () => bundleForm(null, products) }, KM.icon('plus'), 'خزين جديد'));
+
+    const intro = h('p', { class: 'muted page-sub', text: 'الخزين الجاهز بيظهر في أول المتجر، والعميل يضيفه كله للسلة بضغطة. السعر بيتحسب لوحده من أسعار المنتجات.' });
+
+    if (!bundles.length) {
+      $('view').replaceChildren(intro, h('div', { class: 'panel empty' }, h('div', { class: 'empty-emoji', text: '📦' }), h('h3', { text: 'مفيش خزين جاهز' }), h('p', { text: 'اعمل خزين لعيلة صغيرة ومتوسطة وكبيرة عشان العملاء يطلبوا أسرع' })));
+      return;
+    }
+
+    $('view').replaceChildren(
+      intro,
+      h(
+        'div',
+        { class: 'table-wrap' },
+        h(
+          'table',
+          { class: 'table' },
+          h('thead', null, h('tr', null, h('th', { text: 'الخزين' }), h('th', { text: 'الأصناف' }), h('th', { text: 'السعر' }), h('th', { text: 'ظاهر في المتجر' }), h('th', null, h('span', { class: 'sr-only', text: 'إجراءات' })))),
+          h(
+            'tbody',
+            null,
+            bundles.map((b) => {
+              const toggle = h('input', { type: 'checkbox', checked: b.active, 'aria-label': `إظهار ${b.name}` });
+              toggle.addEventListener('change', async () => {
+                toggle.disabled = true;
+                try {
+                  await api(`/api/admin/bundles/${encodeURIComponent(b.id)}`, { method: 'PUT', body: { active: toggle.checked } });
+                  KM.toast(toggle.checked ? 'الخزين ظاهر في المتجر' : 'الخزين اتخفى من المتجر');
+                } catch (err) {
+                  toggle.checked = !toggle.checked;
+                  KM.toast(err.message, 'error');
+                } finally {
+                  toggle.disabled = false;
+                }
+              });
+              return h(
+                'tr',
+                { class: b.active ? '' : 'inactive-row' },
+                h('td', null, h('div', { class: 'product-cell' }, h('span', { class: 'bundle-icon-sm', text: b.icon }), h('span', { class: 'name-cell' }, h('strong', { text: b.name }), h('small', { text: b.description })))),
+                h('td', { 'data-label': 'الأصناف', class: 'num', text: KM.itemsCount(b.items.length) }),
+                h('td', { 'data-label': 'السعر', class: 'num' }, h('strong', { text: KM.money(b.total) }), b.savings > 0 ? h('div', { class: 'muted', text: `توفير ${KM.money(b.savings)}` }) : null),
+                h('td', { 'data-label': 'ظاهر في المتجر' }, h('label', { class: 'switch' }, toggle, h('span', { class: 'track' }))),
+                h(
+                  'td',
+                  null,
+                  h(
+                    'div',
+                    { class: 'actions' },
+                    h('button', { type: 'button', class: 'btn btn-outline btn-sm', text: 'تعديل', onclick: () => bundleForm(b, products) }),
+                    h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': `حذف ${b.name}`, onclick: () => deleteBundle(b) }, KM.icon('trash'))
+                  )
+                )
+              );
+            })
+          )
+        )
+      )
+    );
+  }
+
+  function bundleForm(bundle, products) {
+    if (!products.length) {
+      KM.toast('ضيف منتجات الأول', 'error');
+      return;
+    }
+    const b = bundle || { icon: '📦', active: true, items: [] };
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const options = products.map((p) => [p.id, `${p.name} - ${p.unit} (${KM.money(p.price)})${p.active ? '' : ' • مخفي'}`]);
+    const rows = h('div', { class: 'bundle-rows' });
+    const totalEl = h('strong');
+
+    const collect = () =>
+      [...rows.querySelectorAll('.bundle-row')].map((r) => ({ productId: r.querySelector('select').value, qty: Number(r.querySelector('input').value) }));
+    const updateTotal = () => {
+      const total = collect().reduce((s, it) => s + Math.round((productMap.get(it.productId)?.price || 0) * 100) * (it.qty || 0), 0);
+      totalEl.textContent = KM.money(total / 100);
+    };
+    const addRow = (item) => {
+      const select = h('select', { class: 'input', 'aria-label': 'المنتج' }, options.map(([value, text]) => h('option', { value, selected: item ? item.productId === value : false, text })));
+      const qty = h('input', { class: 'input qty-input', type: 'number', min: '1', step: '1', inputmode: 'numeric', dir: 'ltr', 'aria-label': 'الكمية' });
+      qty.value = item ? item.qty : 1;
+      const row = h(
+        'div',
+        { class: 'bundle-row' },
+        select,
+        qty,
+        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': 'شيل المنتج', onclick: () => { row.remove(); updateTotal(); } }, KM.icon('trash'))
+      );
+      select.addEventListener('change', updateTotal);
+      qty.addEventListener('input', updateTotal);
+      rows.appendChild(row);
+      updateTotal();
+    };
+    (b.items.length ? b.items : [null]).forEach(addRow);
+
+    const form = h(
+      'form',
+      { novalidate: true },
+      h(
+        'div',
+        { class: 'form-grid' },
+        input({ name: 'name', label: 'اسم الخزين', value: b.name, required: true, maxlength: 60, placeholder: 'مثال: خزين عيلة متوسطة' }),
+        input({ name: 'description', label: 'الوصف', value: b.description, maxlength: 120, placeholder: 'مثال: مناسب لـ 4 - 5 أفراد' }),
+        input({ name: 'icon', label: 'أيقونة (إيموجي)', value: b.icon, maxlength: 16 }),
+        input({ name: 'sort', label: 'الترتيب', value: b.sort ?? '', type: 'number', min: '0', step: '1', dir: 'ltr' }),
+        h(
+          'div',
+          { class: 'field full' },
+          h('span', { class: 'field-label', text: 'المنتجات والكميات' }),
+          rows,
+          h(
+            'div',
+            { class: 'bundle-rows-foot' },
+            h('button', { type: 'button', class: 'btn btn-outline btn-sm', onclick: () => addRow(null) }, KM.icon('plus'), 'إضافة منتج'),
+            h('span', null, 'الإجمالي بسعر الجملة: ', totalEl)
+          )
+        ),
+        h('div', { class: 'field full' }, switchEl('active', 'ظاهر في المتجر', b.active))
+      ),
+      h('p', { class: 'notice error', hidden: true }),
+      h(
+        'div',
+        { class: 'modal-foot' },
+        h('button', { type: 'button', class: 'btn btn-ghost', text: 'إلغاء', onclick: () => modal.close() }),
+        h('button', { type: 'submit', class: 'btn btn-primary', text: bundle ? 'حفظ التعديلات' : 'إضافة الخزين' })
+      )
+    );
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = form.elements;
+      const errBox = form.querySelector('.notice.error');
+      errBox.hidden = true;
+      const items = collect();
+      if (!items.length) {
+        errBox.textContent = 'ضيف منتج واحد على الأقل';
+        errBox.hidden = false;
+        return;
+      }
+      const body = { name: f.name.value, description: f.description.value, icon: f.icon.value, active: f.active.checked, items };
+      if (f.sort.value !== '') body.sort = f.sort.value;
+      const btn = form.querySelector('button[type=submit]');
+      setBusy(btn, true);
+      try {
+        if (bundle) await api(`/api/admin/bundles/${encodeURIComponent(bundle.id)}`, { method: 'PUT', body });
+        else await api('/api/admin/bundles', { method: 'POST', body });
+        modal.close();
+        KM.toast(bundle ? 'التعديلات اتحفظت' : 'الخزين اتضاف');
+        renderBundles();
+      } catch (err) {
+        setBusy(btn, false);
+        errBox.textContent = err.message;
+        errBox.hidden = false;
+      }
+    });
+
+    openModal(h('div', { class: 'modal-head' }, h('h2', { text: bundle ? 'تعديل الخزين' : 'خزين جديد' })), form);
+    setTimeout(() => form.elements.name.focus(), 50);
+  }
+
+  async function deleteBundle(b) {
+    if (!confirm(`متأكد إنك عايز تمسح "${b.name}"؟`)) return;
+    try {
+      await api(`/api/admin/bundles/${encodeURIComponent(b.id)}`, { method: 'DELETE' });
+      KM.toast('الخزين اتمسح');
+      renderBundles();
+    } catch (err) {
+      KM.toast(err.message, 'error');
+    }
+  }
+
   async function renderSettings() {
     const token = state.renderToken;
     let data;
@@ -1187,6 +1378,7 @@
     dashboard: renderDashboard,
     orders: renderOrders,
     products: renderProducts,
+    bundles: renderBundles,
     categories: renderCategories,
     settings: renderSettings,
   };

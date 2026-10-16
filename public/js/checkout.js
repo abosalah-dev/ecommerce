@@ -174,11 +174,16 @@
       ),
       h('div', { class: 'summary-row total' }, h('span', { text: 'الإجمالي' }), h('span', { text: KM.money(totals.total) })),
     ];
-    if (!totals.freeDelivery && totals.remainingForFree) {
+    if (totals.savings > 0) {
+      nodes.push(h('p', { class: 'savings-note', text: `🎉 بسعر الجملة وفّرت ${KM.money(totals.savings)} عن أسعار السوق` }));
+    }
+    if (!totals.belowMin && !totals.freeDelivery && totals.remainingForFree) {
       nodes.push(h('p', { class: 'notice', text: `ضيف منتجات بـ ${KM.money(totals.remainingForFree)} كمان والتوصيل يبقى مجاني` }));
     }
     if (totals.belowMin) {
-      nodes.push(h('p', { class: 'notice error', text: `الحد الأدنى للطلب ${KM.money(store.settings.minOrder)}` }));
+      nodes.push(
+        h('p', { class: 'notice error', text: `الحد الأدنى لطلب الجملة ${KM.money(store.settings.minOrder)} • ضيف منتجات بـ ${KM.money(totals.remainingForMin)} كمان` })
+      );
     }
     nodes.push(
       h(

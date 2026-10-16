@@ -213,3 +213,9 @@ button.stat:hover { border-color: var(--brand-600); }
 .inactive-row .product-cell, .inactive-row .num { opacity: 0.5; }
 .field-label { font-weight: 700; font-size: 14px; }
 .panel-title .muted { font-size: 14px; font-weight: 600; }
+
+.bundle-icon-sm { width: 44px; height: 44px; border-radius: 12px; background: var(--brand-50); display: grid; place-items: center; font-size: 22px; flex-shrink: 0; }
+.bundle-rows { display: grid; gap: 8px; }
+.bundle-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; gap: 8px; align-items: center; }
+.bundle-row .input { min-height: 42px; }
+.bundle-rows-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; font-size: 14px; }
