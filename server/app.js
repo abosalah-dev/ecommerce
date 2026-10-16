@@ -14,6 +14,9 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const STATUSES = ['new', 'preparing', 'delivering', 'delivered', 'cancelled'];
 const PAYMENT_METHODS = ['cash', 'wallet'];
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const MAX_PRODUCT_IMAGES = 8;
+const PLACEHOLDER_IMAGE = '/images/products/placeholder.svg';
+const IMAGE_URL = /^\/(images|uploads)\/[\w./-]+$/;
 const TIME_ZONE = 'Africa/Cairo';
 
 const dayKey = (date) =>
@@ -76,7 +79,14 @@ function publicProduct(p) {
     featured: p.featured,
     description: p.description,
     image: p.image,
+    images: productImages(p),
   };
+}
+
+// المنتجات القديمة كان ليها صورة واحدة بس في image
+function productImages(p) {
+  if (Array.isArray(p.images) && p.images.length) return p.images;
+  return [p.image || PLACEHOLDER_IMAGE];
 }
 
 function publicOrder(o) {
@@ -387,6 +397,28 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
 
   // ---- المنتجات ----
 
+  // أول صورة في القائمة هي الصورة الرئيسية اللي بتظهر في الكارت والسلة
+  function parseImages(body, base) {
+    let list;
+    if (body.images !== undefined) {
+      if (!Array.isArray(body.images)) throw bad('الصور لازم تكون قائمة');
+      list = body.images;
+    } else {
+      // تعديل قديم بيبعت image بس: نغيّر الرئيسية ونسيب باقي الصور زي ما هي
+      const current = Array.isArray(base.images) ? base.images : [base.image];
+      list = [body.image !== undefined ? body.image : current[0], ...current.slice(1)];
+    }
+    const images = [];
+    for (const item of list) {
+      const url = v.text(item, { field: 'الصورة', max: 300 });
+      if (!url || url === PLACEHOLDER_IMAGE) continue;
+      if (!IMAGE_URL.test(url)) throw bad('رابط الصورة غير صحيح');
+      if (!images.includes(url)) images.push(url);
+    }
+    if (images.length > MAX_PRODUCT_IMAGES) throw bad(`أقصى عدد صور للمنتج ${MAX_PRODUCT_IMAGES}`);
+    return images;
+  }
+
   function parseProduct(body, base = {}) {
     const d = db();
     const src = { ...base, ...(body || {}) };
@@ -395,8 +427,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     const price = v.number(src.price, { field: 'السعر', min: 0, max: 1e6 });
     let oldPrice = v.number(src.oldPrice, { field: 'السعر قبل الخصم', min: 0, max: 1e6, nullable: true });
     if (oldPrice !== null && oldPrice <= price) oldPrice = null;
-    const image = v.text(src.image, { field: 'الصورة', max: 300 });
-    if (image && !/^\/(images|uploads)\/[\w./-]+$/.test(image)) throw bad('رابط الصورة غير صحيح');
+    const images = parseImages(body || {}, base);
     return {
       name: v.text(src.name, { field: 'اسم المنتج', max: 80, required: true }),
       categoryId,
@@ -405,7 +436,8 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       oldPrice,
       stock: v.number(src.stock ?? 0, { field: 'المخزون', min: 0, max: 1e6, integer: true }),
       description: v.text(src.description, { field: 'الوصف', max: 500 }),
-      image: image || '/images/products/placeholder.svg',
+      image: images[0] || PLACEHOLDER_IMAGE,
+      images,
       active: src.active === undefined ? true : v.bool(src.active),
       featured: v.bool(src.featured),
       sort: v.number(src.sort ?? 0, { field: 'الترتيب', min: 0, max: 1e6, integer: true }),
