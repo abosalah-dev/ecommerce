@@ -1,43 +1,70 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
 const { createSeed, defaultSettings } = require('./seed');
 
-// تخزين بسيط في ملف JSON واحد.
-// الكتابة بتتم في ملف مؤقت وبعدين rename عشان الملف ميبوظش لو السيرفر وقف فجأة.
+// البيانات كلها بتتحمل في الذاكرة (store.data) والـ API بيشتغل عليها،
+// وبعد أي تعديل بننادي save() عشان تتكتب في التخزين (ملف أو Redis).
 class JsonStore {
-  constructor(dir) {
-    this.dir = dir;
-    this.file = path.join(dir, 'db.json');
-    this.uploadsDir = path.join(dir, 'uploads');
+  constructor(backend) {
+    this.backend = backend;
     this.data = null;
+    this.ordersLoaded = false;
+    this.orderSnapshot = new Map();
   }
 
-  load() {
-    fs.mkdirSync(this.dir, { recursive: true });
-    fs.mkdirSync(this.uploadsDir, { recursive: true });
-    if (fs.existsSync(this.file)) {
-      this.data = JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      // المتاجر القديمة كانت بتوصل لأي مكان، فمنقفلش عليهم المناطق فجأة
-      const hadAreas = Boolean(this.data.settings && 'serviceAreas' in this.data.settings);
-      // لو اتضافت إعدادات جديدة في نسخة أحدث من البرنامج
-      this.data.settings = { ...defaultSettings, ...this.data.settings };
-      if (!hadAreas) this.data.settings.serviceAreas = [];
-      this.data.admin = this.data.admin || { passwordHash: null };
-      this.data.counters = this.data.counters || { order: 1000 };
-      this.migrate();
-    } else {
-      this.data = createSeed();
-      this.save();
-    }
+  get shared() {
+    return this.backend.shared;
+  }
+
+  async load() {
+    await this.backend.init();
+    await this.refresh({ orders: true, force: true });
     return this;
   }
 
-  // تحديث البيانات القديمة لشكل النسخة الجديدة
-  migrate() {
+  // في Redis بنقرا آخر نسخة مع كل طلب، لأن ممكن نسخة تانية من السيرفر تكون عدّلت
+  async refresh({ orders = true, force = false } = {}) {
+    if (!force && !this.shared) return;
+    const raw = await this.backend.read({ orders });
+    if (!raw) {
+      this.data = createSeed();
+      this.normalize();
+      this.ordersLoaded = true;
+      this.orderSnapshot.clear();
+      await this.save();
+      return;
+    }
+    this.data = raw;
+    this.ordersLoaded = orders;
+    const changed = this.normalize();
+    this.takeSnapshot();
+    if (changed) await this.save();
+  }
+
+  // تحديث البيانات القديمة لشكل النسخة الجديدة. بيرجع true لو اتغير حاجة.
+  normalize() {
     const d = this.data;
     let changed = false;
+    // المتاجر القديمة كانت بتوصل لأي مكان، فمنقفلش عليهم المناطق فجأة
+    const hadAreas = Boolean(d.settings && 'serviceAreas' in d.settings);
+    const before = JSON.stringify(d.settings || {});
+    // لو اتضافت إعدادات جديدة في نسخة أحدث من البرنامج
+    d.settings = { ...defaultSettings, ...d.settings };
+    if (!hadAreas) d.settings.serviceAreas = [];
+    if (JSON.stringify(d.settings) !== before) changed = true;
+    if (!d.admin) {
+      d.admin = { passwordHash: null };
+      changed = true;
+    }
+    if (!d.admin.sessions || typeof d.admin.sessions !== 'object') {
+      d.admin.sessions = {};
+      changed = true;
+    }
+    if (!d.counters) {
+      d.counters = { order: 1000 };
+      changed = true;
+    }
+    if (!Array.isArray(d.orders)) d.orders = [];
     for (const p of d.products) {
       if ('oldPrice' in p) {
         if (p.marketPrice === undefined) p.marketPrice = p.oldPrice;
@@ -58,13 +85,25 @@ class JsonStore {
       d.bundles = [];
       changed = true;
     }
-    if (changed) this.save();
+    return changed;
   }
 
-  save() {
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
-    fs.renameSync(tmp, this.file);
+  takeSnapshot() {
+    this.orderSnapshot.clear();
+    if (!this.ordersLoaded) return;
+    for (const o of this.data.orders) this.orderSnapshot.set(o.id, JSON.stringify(o));
+  }
+
+  async save() {
+    if (!this.shared) {
+      await this.backend.write(this.data);
+      return;
+    }
+    // في Redis بنكتب البيانات الأساسية + الطلبات اللي اتغيرت بس
+    const { orders, ...main } = this.data;
+    const changed = this.ordersLoaded ? orders.filter((o) => this.orderSnapshot.get(o.id) !== JSON.stringify(o)) : [];
+    await this.backend.write(main, changed);
+    for (const o of changed) this.orderSnapshot.set(o.id, JSON.stringify(o));
   }
 }
 

@@ -10,8 +10,8 @@ const { createApp } = require('../server/app');
 function startServer({ prepare, ...options } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'km-test-'));
   if (prepare) prepare(dataDir);
-  const { app, store } = createApp({ dataDir, ...options });
-  return new Promise((resolve) => {
+  const { app, store, ready } = createApp({ dataDir, ...options });
+  return ready.then(() => new Promise((resolve) => {
     const server = app.listen(0, () => {
       const base = `http://127.0.0.1:${server.address().port}`;
       resolve({
@@ -28,7 +28,7 @@ function startServer({ prepare, ...options } = {}) {
           }),
       });
     });
-  });
+  }));
 }
 
 function client(base) {

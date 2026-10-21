@@ -20,6 +20,8 @@ function verifyHash(password, stored) {
   return crypto.timingSafeEqual(expected, actual);
 }
 
+const sha256 = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
+
 function safeEqual(a, b) {
   const ha = crypto.createHash('sha256').update(String(a)).digest();
   const hb = crypto.createHash('sha256').update(String(b)).digest();
@@ -73,7 +75,12 @@ class AdminAuth {
   constructor(store, { envPassword } = {}) {
     this.store = store;
     this.envPassword = envPassword || '';
-    this.sessions = new Map();
+  }
+
+  // الجلسات متخزنة مع البيانات (متشفرة بـ sha256) عشان تفضل شغالة
+  // بعد إعادة التشغيل، وعلى Vercel حتى لو الطلب راح لنسخة تانية من السيرفر.
+  get sessions() {
+    return this.store.data.admin.sessions;
   }
 
   // ترتيب الأولوية: كلمة السر اللي اتغيرت من لوحة التحكم ← متغير البيئة ← الافتراضية
@@ -88,31 +95,28 @@ class AdminAuth {
     return safeEqual(password, this.envPassword || DEFAULT_PASSWORD);
   }
 
+  // اللي بينادي الدوال اللي جاية مسؤول إنه يعمل store.save() بعدها
   setPassword(password) {
     this.store.data.admin.passwordHash = hashPassword(password);
-    this.store.save();
-    this.sessions.clear();
+    this.store.data.admin.sessions = {};
   }
 
   createSession() {
     const token = crypto.randomBytes(32).toString('hex');
-    this.sessions.set(token, Date.now() + SESSION_TTL_MS);
+    const now = Date.now();
+    for (const [key, exp] of Object.entries(this.sessions)) if (exp < now) delete this.sessions[key];
+    this.sessions[sha256(token)] = now + SESSION_TTL_MS;
     return token;
   }
 
   isValid(token) {
-    if (!token) return false;
-    const exp = this.sessions.get(token);
-    if (!exp) return false;
-    if (exp < Date.now()) {
-      this.sessions.delete(token);
-      return false;
-    }
-    return true;
+    if (!token || typeof token !== 'string') return false;
+    const exp = this.sessions[sha256(token)];
+    return Boolean(exp && exp >= Date.now());
   }
 
   destroy(token) {
-    this.sessions.delete(token);
+    if (token) delete this.sessions[sha256(token)];
   }
 
   tokenFrom(req) {

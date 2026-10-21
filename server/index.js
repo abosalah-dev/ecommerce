@@ -16,29 +16,26 @@ if (fs.existsSync(envFile)) {
   }
 }
 
+const { configFromEnv } = require('./config');
+
 const PORT = Number(process.env.PORT) || 3000;
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+const config = configFromEnv();
+const { app, auth, store, ready } = createApp(config);
 
-function parseTrustProxy(value) {
-  if (!value) return undefined;
-  if (/^\d+$/.test(value)) return Number(value);
-  if (value === 'true') return true;
-  return value;
-}
-
-const { app, auth, store } = createApp({
-  dataDir: DATA_DIR,
-  adminPassword: process.env.ADMIN_PASSWORD,
-  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
-});
-
-app.listen(PORT, () => {
-  console.log(`🛒 ${store.data.settings.storeName} شغال على http://localhost:${PORT}`);
-  console.log(`🔐 لوحة التحكم: http://localhost:${PORT}/admin.html`);
-  console.log(`💾 البيانات محفوظة في: ${store.file}`);
-  if (auth.usingDefaultPassword) {
-    console.warn(
-      `⚠️  بتستخدم كلمة السر الافتراضية للوحة التحكم (${DEFAULT_PASSWORD}). غيّرها من الإعدادات أو حط ADMIN_PASSWORD.`
-    );
-  }
-});
+ready
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🛒 ${store.data.settings.storeName} شغال على http://localhost:${PORT}`);
+      console.log(`🔐 لوحة التحكم: http://localhost:${PORT}/admin.html`);
+      console.log(config.redis ? '💾 البيانات محفوظة في Upstash Redis' : `💾 البيانات محفوظة في: ${config.dataDir}`);
+      if (auth.usingDefaultPassword) {
+        console.warn(
+          `⚠️  بتستخدم كلمة السر الافتراضية للوحة التحكم (${DEFAULT_PASSWORD}). غيّرها من الإعدادات أو حط ADMIN_PASSWORD.`
+        );
+      }
+    });
+  })
+  .catch((err) => {
+    console.error('❌ مقدرناش نحمّل البيانات:', err);
+    process.exit(1);
+  });

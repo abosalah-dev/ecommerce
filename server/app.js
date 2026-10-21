@@ -1,10 +1,10 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const { JsonStore } = require('./db');
+const { FileBackend, RedisBackend } = require('./storage');
 const { AdminAuth, createRateLimiter } = require('./auth');
 const v = require('./validate');
 
@@ -14,6 +14,9 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const STATUSES = ['new', 'preparing', 'delivering', 'delivered', 'cancelled'];
 const PAYMENT_METHODS = ['cash', 'wallet'];
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+// في Redis كل صورة بتتخزن كمفتاح لوحدها، فبنخليها أصغر
+const MAX_UPLOAD_BYTES_SHARED = 700 * 1024;
+const UPLOAD_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
 const MAX_PRODUCT_IMAGES = 8;
 const PLACEHOLDER_IMAGE = '/images/products/placeholder.svg';
 const IMAGE_URL = /^\/(images|uploads)\/[\w./-]+$/;
@@ -129,11 +132,16 @@ function publicBundle(b, productMap) {
 
 const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0);
 
-function createApp({ dataDir, adminPassword, trustProxy } = {}) {
-  if (!dataDir) throw new Error('dataDir is required');
-  const store = new JsonStore(dataDir).load();
+function createApp({ dataDir, adminPassword, trustProxy, redis } = {}) {
+  let backend;
+  if (redis && redis.url && redis.token) backend = new RedisBackend(redis);
+  else if (dataDir) backend = new FileBackend(dataDir);
+  else throw new Error('dataDir or redis is required');
+  const store = new JsonStore(backend);
+  const ready = store.load();
   const auth = new AdminAuth(store, { envPassword: adminPassword });
   const db = () => store.data;
+  const maxUpload = backend.shared ? MAX_UPLOAD_BYTES_SHARED : MAX_UPLOAD_BYTES;
 
   // محاولات الدخول الغلط بس هي اللي بتتحسب
   const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
@@ -152,6 +160,29 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     next();
   });
 
+  // قبل أي طلب: نستنى البيانات تتحمل. ومع Redis: نقفل لو الطلب هيعدّل، ونقرا آخر نسخة
+  const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+  app.use(['/api', '/uploads'], async (req, res, next) => {
+    await ready;
+    if (!store.shared) return next();
+    if (MUTATING.has(req.method)) {
+      const token = await backend.lock();
+      if (!token) throw new HttpError(503, 'في ضغط دلوقتي، جرب تاني كمان ثواني');
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        backend.unlock(token).catch((err) => console.error('unlock failed', err));
+      };
+      res.on('finish', release);
+      res.on('close', release);
+    }
+    if (req.baseUrl === '/uploads') return next();
+    const needOrders = !(req.method === 'GET' && req.path === '/store');
+    await store.refresh({ orders: needOrders });
+    next();
+  });
+
   function requireAdmin(req, res, next) {
     if (!auth.isValid(auth.tokenFrom(req))) return next(new HttpError(401, 'لازم تسجل دخول الأول'));
     next();
@@ -165,7 +196,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
   /* واجهة المتجر                                                        */
   /* ------------------------------------------------------------------ */
 
-  app.get('/api/store', (req, res) => {
+  app.get('/api/store', async (req, res) => {
     const d = db();
     const products = d.products.filter((p) => p.active).sort(bySort);
     const productMap = new Map(products.map((p) => [p.id, p]));
@@ -181,7 +212,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     });
   });
 
-  app.post('/api/orders', (req, res) => {
+  app.post('/api/orders', async (req, res) => {
     const tooMany = () => new HttpError(429, 'طلبات كتير في وقت قصير، جرب كمان شوية');
     if (!orderIpLimiter.check(req.ip)) throw tooMany();
     const d = db();
@@ -279,13 +310,13 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       savings: fromCents(savingsCents),
     };
     d.orders.push(order);
-    store.save();
+    await store.save();
     orderIpLimiter.hit(req.ip);
     orderPhoneLimiter.hit(customer.phone);
     res.status(201).json({ order: publicOrder(order) });
   });
 
-  app.post('/api/orders/track', (req, res) => {
+  app.post('/api/orders/track', async (req, res) => {
     if (!trackLimiter.check(req.ip)) throw new HttpError(429, 'محاولات كتير، جرب كمان دقيقة');
     trackLimiter.hit(req.ip);
     const body = req.body || {};
@@ -305,7 +336,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
   /* لوحة التحكم                                                          */
   /* ------------------------------------------------------------------ */
 
-  app.post('/api/admin/login', (req, res) => {
+  app.post('/api/admin/login', async (req, res) => {
     if (!loginLimiter.check(req.ip)) throw new HttpError(429, 'محاولات كتير غلط، استنى ربع ساعة وجرب تاني');
     const password = (req.body || {}).password;
     if (!auth.checkPassword(password)) {
@@ -314,23 +345,25 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     }
     loginLimiter.reset(req.ip);
     const token = auth.createSession();
+    await store.save();
     res.setHeader('Set-Cookie', auth.cookie(token, req));
     res.json({ ok: true, usingDefaultPassword: auth.usingDefaultPassword });
   });
 
-  app.post('/api/admin/logout', (req, res) => {
+  app.post('/api/admin/logout', async (req, res) => {
     auth.destroy(auth.tokenFrom(req));
+    await store.save();
     res.setHeader('Set-Cookie', auth.cookie('', req, 0));
     res.json({ ok: true });
   });
 
   app.use('/api/admin', requireAdmin);
 
-  app.get('/api/admin/me', (req, res) => {
+  app.get('/api/admin/me', async (req, res) => {
     res.json({ ok: true, usingDefaultPassword: auth.usingDefaultPassword, storeName: db().settings.storeName });
   });
 
-  app.get('/api/admin/stats', (req, res) => {
+  app.get('/api/admin/stats', async (req, res) => {
     const d = db();
     const today = dayKey(Date.now());
     const active = d.orders.filter((o) => o.status !== 'cancelled');
@@ -383,7 +416,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
 
   // ---- الطلبات ----
 
-  app.get('/api/admin/orders', (req, res) => {
+  app.get('/api/admin/orders', async (req, res) => {
     const d = db();
     const status = typeof req.query.status === 'string' ? req.query.status : '';
     const q = typeof req.query.q === 'string' ? v.toLatinDigits(req.query.q.trim()).toLowerCase() : '';
@@ -409,11 +442,11 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     return order;
   }
 
-  app.get('/api/admin/orders/:id', (req, res) => {
+  app.get('/api/admin/orders/:id', async (req, res) => {
     res.json({ order: findOrder(req.params.id) });
   });
 
-  app.patch('/api/admin/orders/:id', (req, res) => {
+  app.patch('/api/admin/orders/:id', async (req, res) => {
     const d = db();
     const order = findOrder(req.params.id);
     const status = (req.body || {}).status;
@@ -431,7 +464,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       order.status = status;
       order.updatedAt = now;
       order.history.push({ status, at: now });
-      store.save();
+      await store.save();
     }
     res.json({ order });
   });
@@ -495,11 +528,11 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     return product;
   }
 
-  app.get('/api/admin/products', (req, res) => {
+  app.get('/api/admin/products', async (req, res) => {
     res.json({ products: [...db().products].sort(bySort), categories: [...db().categories].sort(bySort) });
   });
 
-  app.post('/api/admin/products', (req, res) => {
+  app.post('/api/admin/products', async (req, res) => {
     const d = db();
     const data = parseProduct(req.body);
     if (!req.body || req.body.sort === undefined) {
@@ -508,23 +541,23 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     const now = new Date().toISOString();
     const product = { id: randomId('p'), ...data, createdAt: now, updatedAt: now };
     d.products.push(product);
-    store.save();
+    await store.save();
     res.status(201).json({ product });
   });
 
-  app.put('/api/admin/products/:id', (req, res) => {
+  app.put('/api/admin/products/:id', async (req, res) => {
     const product = findProduct(req.params.id);
     Object.assign(product, parseProduct(req.body, product), { updatedAt: new Date().toISOString() });
-    store.save();
+    await store.save();
     res.json({ product });
   });
 
-  app.delete('/api/admin/products/:id', (req, res) => {
+  app.delete('/api/admin/products/:id', async (req, res) => {
     const d = db();
     const product = findProduct(req.params.id);
     d.products = d.products.filter((p) => p !== product);
     for (const b of d.bundles) b.items = b.items.filter((it) => it.productId !== product.id);
-    store.save();
+    await store.save();
     res.json({ ok: true });
   });
 
@@ -559,7 +592,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     return bundle;
   }
 
-  app.get('/api/admin/bundles', (req, res) => {
+  app.get('/api/admin/bundles', async (req, res) => {
     const d = db();
     const productMap = new Map(d.products.map((p) => [p.id, p]));
     res.json({
@@ -568,7 +601,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     });
   });
 
-  app.post('/api/admin/bundles', (req, res) => {
+  app.post('/api/admin/bundles', async (req, res) => {
     const d = db();
     const data = parseBundle(req.body);
     if (!req.body || req.body.sort === undefined) {
@@ -576,22 +609,22 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     }
     const bundle = { id: randomId('b'), ...data };
     d.bundles.push(bundle);
-    store.save();
+    await store.save();
     res.status(201).json({ bundle });
   });
 
-  app.put('/api/admin/bundles/:id', (req, res) => {
+  app.put('/api/admin/bundles/:id', async (req, res) => {
     const bundle = findBundle(req.params.id);
     Object.assign(bundle, parseBundle(req.body, bundle));
-    store.save();
+    await store.save();
     res.json({ bundle });
   });
 
-  app.delete('/api/admin/bundles/:id', (req, res) => {
+  app.delete('/api/admin/bundles/:id', async (req, res) => {
     const d = db();
     const bundle = findBundle(req.params.id);
     d.bundles = d.bundles.filter((b) => b !== bundle);
-    store.save();
+    await store.save();
     res.json({ ok: true });
   });
 
@@ -612,7 +645,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     return category;
   }
 
-  app.get('/api/admin/categories', (req, res) => {
+  app.get('/api/admin/categories', async (req, res) => {
     const d = db();
     res.json({
       categories: [...d.categories]
@@ -621,7 +654,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     });
   });
 
-  app.post('/api/admin/categories', (req, res) => {
+  app.post('/api/admin/categories', async (req, res) => {
     const d = db();
     const data = parseCategory(req.body);
     if (!req.body || req.body.sort === undefined) {
@@ -629,34 +662,34 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     }
     const category = { id: randomId('c'), ...data };
     d.categories.push(category);
-    store.save();
+    await store.save();
     res.status(201).json({ category });
   });
 
-  app.put('/api/admin/categories/:id', (req, res) => {
+  app.put('/api/admin/categories/:id', async (req, res) => {
     const category = findCategory(req.params.id);
     Object.assign(category, parseCategory(req.body, category));
-    store.save();
+    await store.save();
     res.json({ category });
   });
 
-  app.delete('/api/admin/categories/:id', (req, res) => {
+  app.delete('/api/admin/categories/:id', async (req, res) => {
     const d = db();
     const category = findCategory(req.params.id);
     const count = d.products.filter((p) => p.categoryId === category.id).length;
     if (count) throw bad(`القسم فيه ${count} منتج، انقلهم لقسم تاني أو امسحهم الأول`);
     d.categories = d.categories.filter((c) => c !== category);
-    store.save();
+    await store.save();
     res.json({ ok: true });
   });
 
   // ---- الإعدادات ----
 
-  app.get('/api/admin/settings', (req, res) => {
+  app.get('/api/admin/settings', async (req, res) => {
     res.json({ settings: db().settings, usingDefaultPassword: auth.usingDefaultPassword });
   });
 
-  app.put('/api/admin/settings', (req, res) => {
+  app.put('/api/admin/settings', async (req, res) => {
     const d = db();
     const src = { ...d.settings, ...(req.body || {}) };
     const whatsapp = v.toLatinDigits(v.text(src.whatsapp, { field: 'رقم الواتساب', max: 20 })).replace(/\D/g, '');
@@ -678,11 +711,11 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       maxQtyPerItem: v.number(src.maxQtyPerItem, { field: 'أقصى كمية للمنتج', min: 1, max: 999, integer: true }),
       announcement: v.text(src.announcement, { field: 'شريط الإعلان', max: 200 }),
     };
-    store.save();
+    await store.save();
     res.json({ settings: d.settings });
   });
 
-  app.put('/api/admin/password', (req, res) => {
+  app.put('/api/admin/password', async (req, res) => {
     const { current, next } = req.body || {};
     if (!auth.checkPassword(current)) throw bad('كلمة السر الحالية غلط');
     if (typeof next !== 'string' || next.length < 6 || next.length > 100) {
@@ -690,25 +723,26 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     }
     auth.setPassword(next);
     const token = auth.createSession();
+    await store.save();
     res.setHeader('Set-Cookie', auth.cookie(token, req));
     res.json({ ok: true });
   });
 
   // ---- رفع الصور ----
 
-  app.post('/api/admin/upload', (req, res) => {
+  app.post('/api/admin/upload', async (req, res) => {
     const dataUrl = String((req.body || {}).dataUrl || '');
     const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
     if (!match) throw bad('الصورة لازم تكون PNG أو JPG أو WEBP');
     const buffer = Buffer.from(match[2], 'base64');
-    if (buffer.length > MAX_UPLOAD_BYTES) throw bad('حجم الصورة أكبر من 2 ميجا');
+    if (buffer.length > maxUpload) throw bad(`حجم الصورة أكبر من ${Math.round(maxUpload / 1024)} كيلوبايت`);
     const isPng = buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
     const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
     const isWebp = buffer.subarray(0, 4).toString('latin1') === 'RIFF' && buffer.subarray(8, 12).toString('latin1') === 'WEBP';
     const ext = { png: isPng && 'png', jpeg: isJpeg && 'jpg', webp: isWebp && 'webp' }[match[1]];
     if (!ext) throw bad('ملف الصورة غير صالح');
     const name = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
-    fs.writeFileSync(path.join(store.uploadsDir, name), buffer);
+    await backend.putUpload(name, buffer);
     res.status(201).json({ url: `/uploads/${name}` });
   });
 
@@ -720,7 +754,14 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
   /* الملفات الثابتة                                                      */
   /* ------------------------------------------------------------------ */
 
-  app.use('/uploads', express.static(store.uploadsDir, { maxAge: '30d', index: false }));
+  app.get('/uploads/:name', async (req, res) => {
+    const match = /^[\w-]+\.(png|jpg|webp)$/.exec(req.params.name);
+    const buffer = match ? await backend.getUpload(req.params.name) : null;
+    if (!buffer) return res.status(404).type('text/plain').send('Not found');
+    res.setHeader('Content-Type', UPLOAD_TYPES[match[1]]);
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    res.send(buffer);
+  });
   app.use(
     express.static(PUBLIC_DIR, {
       extensions: ['html'],
@@ -746,7 +787,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     res.status(500).json({ error: 'حصلت مشكلة في السيرفر، جرب تاني' });
   });
 
-  return { app, store, auth };
+  return { app, store, auth, ready };
 }
 
 module.exports = { createApp, STATUSES };

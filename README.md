@@ -59,6 +59,7 @@ npm start
 | `ADMIN_PASSWORD` | `admin123` | كلمة سر لوحة التحكم (لو اتغيرت من الإعدادات، اللي في الإعدادات هي اللي بتتحسب) |
 | `DATA_DIR` | `./data` | مكان حفظ البيانات والصور المرفوعة |
 | `TRUST_PROXY` | — | خليها `1` لو الموقع ورا proxy (Render، Railway، Nginx...) |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | — | بيانات Upstash Redis. لو موجودين البيانات بتتخزن في Redis بدل الملفات (لازم على Vercel) |
 
 ## 💾 البيانات
 
@@ -82,6 +83,18 @@ npm start
 > الإعداد ده بيستخدم خطة **Starter** (حوالي 7 دولار في الشهر) ومعاها هارد 1 جيجا (حوالي ربع دولار)، عشان الطلبات والصور تفضل محفوظة.
 > الخطة المجانية بتمسح البيانات مع كل إعادة تشغيل، فمتنفعش لمتجر حقيقي.
 > بعد الرفع تقدر تربط دومين باسمك من **Settings ← Custom Domains**.
+
+### على Vercel (مجاني)
+المشروع فيه `vercel.json` جاهز. Vercel مبيحفظش ملفات، فالبيانات بتتخزن في **Upstash Redis** (مجاني ومتوصل بـ Vercel).
+
+1. ادخل [vercel.com](https://vercel.com) بحساب GitHub ← **Add New ← Project** ← اختار الريبو `abosalah-dev/ecommerce` ← **Deploy**.
+2. من صفحة المشروع ← **Storage ← Create Database ← Upstash for Redis** (الخطة المجانية) ← **Connect** للمشروع.
+   ده بيضيف `KV_REST_API_URL` و `KV_REST_API_TOKEN` لوحدهم.
+3. من **Settings ← Environment Variables** ضيف `ADMIN_PASSWORD` بكلمة سر قوية.
+4. من **Deployments** اعمل **Redeploy** لآخر نسخة، وخد الرابط (زي `gomlet-beitak.vercel.app`).
+
+> من غير Upstash الموقع هيفتح، بس الطلبات والتعديلات هتتمسح مع كل إعادة تشغيل.
+> في وضع Redis أقصى حجم للصورة المرفوعة 700 كيلوبايت (لوحة التحكم بتصغّر الصور لوحدها قبل الرفع).
 
 ### بـ Docker (أي سيرفر أو VPS)
 ```bash
@@ -107,10 +120,14 @@ npm test
 ## 🗂️ هيكل المشروع
 
 ```
+api/
+  index.js      نقطة الدخول على Vercel
 server/
   index.js      تشغيل السيرفر
+  config.js     الإعدادات من متغيرات البيئة
+  storage.js    التخزين: ملفات أو Upstash Redis
   app.js        كل الـ API (المتجر + لوحة التحكم)
-  db.js         التخزين في ملف JSON
+  db.js         البيانات في الذاكرة والحفظ
   auth.js       تسجيل دخول لوحة التحكم والحماية
   validate.js   التحقق من البيانات
   seed.js       المنتجات والإعدادات المبدئية
