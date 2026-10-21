@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <circle cx="200" cy="214" r="156" fill="#f3e3d8"/>
+  <ellipse cx="200" cy="352" rx="118" ry="12" fill="#0f172a" opacity=".08"/>
+      <path d="M126 104 H274 L286 328 Q288 348 266 348 H134 Q112 348 114 328 Z" fill="#b45309"/>
+      <rect x="126" y="96" width="148" height="20" rx="3" fill="#873e07"/>
+      <path d="M130 124 H270" stroke="#ffffff" stroke-width="2" stroke-dasharray="6 6" opacity=".4"/>
+      <path d="M248 116 L262 116 L274 328 Q275 342 262 344 Z" fill="#000000" opacity=".08"/>
+      <circle cx="200" cy="148" r="8" fill="#7e3a06"/>
+      <circle cx="200" cy="232" r="62" fill="#fffbeb"/>
+        <circle cx="176" cy="212" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M178 202 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="200" cy="206" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M202 196 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="224" cy="214" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M226 204 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="168" cy="236" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M170 226 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="192" cy="230" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M194 220 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="216" cy="234" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M218 224 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="234" cy="242" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M236 232 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="182" cy="254" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M184 244 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+        <circle cx="206" cy="256" r="11" fill="#fcd34d" stroke="#d97706" stroke-width="1.5"/>
+        <path d="M208 246 q4 -3 6 1" stroke="#d97706" stroke-width="1.5" fill="none"/>
+    <rect x="155" y="306" width="90" height="8" rx="4" fill="#ffffff" opacity=".55"/>
+    <rect x="167" y="321" width="66" height="6" rx="3" fill="#ffffff" opacity=".3"/>
+</svg>

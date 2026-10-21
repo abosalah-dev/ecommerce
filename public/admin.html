@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>لوحة التحكم</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#123f34">
+  <link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body class="admin">
+  <div class="login-wrap" id="loginView" hidden>
+    <div class="login-card">
+      <img src="/images/logo.svg" alt="" width="64" height="64">
+      <h1>لوحة التحكم</h1>
+      <p>ادخل كلمة السر عشان تدير المتجر</p>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="password">كلمة السر</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+          <span class="field-error" id="loginError" role="alert"></span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-block">دخول</button>
+      </form>
+      <a href="/" class="back">← الرجوع للمتجر</a>
+    </div>
+  </div>
+
+  <div class="admin-layout" id="appView" hidden>
+    <aside class="sidebar">
+      <a href="/admin.html" class="logo"><img src="/images/logo.svg" alt="" width="36" height="36"><span id="sideStoreName">لوحة التحكم</span></a>
+      <nav class="side-nav" aria-label="أقسام لوحة التحكم">
+        <button type="button" class="side-link" data-view="dashboard" data-icon="home">الرئيسية</button>
+        <button type="button" class="side-link" data-view="orders" data-icon="truck">الطلبات <span class="nav-badge" id="newOrdersBadge" hidden>0</span></button>
+        <button type="button" class="side-link" data-view="products" data-icon="tag">المنتجات</button>
+        <button type="button" class="side-link" data-view="bundles" data-icon="box">الباقات الجاهزة</button>
+        <button type="button" class="side-link" data-view="categories" data-icon="grid">الأقسام</button>
+        <button type="button" class="side-link" data-view="settings" data-icon="shield">الإعدادات</button>
+      </nav>
+      <div class="side-bottom">
+        <a href="/" class="side-link" target="_blank" rel="noopener" data-icon="arrow"><span>عرض المتجر</span></a>
+        <button type="button" class="side-link" id="logoutBtn" data-icon="lock"><span>تسجيل خروج</span></button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="warn-banner" id="defaultPwBanner" hidden>
+        <span>⚠️ بتستخدم كلمة السر الافتراضية (admin123). غيّرها دلوقتي عشان محدش يدخل على لوحة التحكم.</span>
+        <button type="button" class="btn btn-sm btn-outline" id="changePwShortcut">غيّر كلمة السر</button>
+      </div>
+      <div class="admin-top">
+        <h1 id="viewTitle"></h1>
+        <div class="top-actions" id="viewActions"></div>
+      </div>
+      <div id="view"></div>
+    </main>
+  </div>
+
+  <dialog class="modal" id="adminModal"></dialog>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
