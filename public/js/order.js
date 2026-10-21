@@ -159,7 +159,7 @@
     }
     if (storeData) {
       actions.appendChild(
-        h('button', { type: 'button', class: 'btn btn-primary btn-lg', onclick: () => repeatOrder(order) }, KM.icon('refresh'), 'كرر نفس الخزين')
+        h('button', { type: 'button', class: 'btn btn-primary btn-lg', onclick: () => repeatOrder(order) }, KM.icon('refresh'), 'كرر نفس الطلبية')
       );
     } else {
       actions.appendChild(h('a', { class: 'btn btn-primary btn-lg', href: '/' }, 'كمّل تسوق'));
@@ -168,7 +168,7 @@
       h(
         'div',
         { class: 'panel' },
-        h('p', { class: 'repeat-hint no-print', text: 'خلص الخزين؟ دوس "كرر نفس الخزين" والمنتجات كلها تتضاف للسلة بالأسعار الجديدة.' }),
+        h('p', { class: 'repeat-hint no-print', text: 'خلصت الطلبية؟ دوس "كرر نفس الطلبية" والمنتجات كلها تتضاف للسلة بالأسعار الجديدة.' }),
         actions
       )
     );

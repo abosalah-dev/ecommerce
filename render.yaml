@@ -2,7 +2,7 @@
 # الخطة starter + هارد 1 جيجا عشان الطلبات والصور متضيعش مع كل تحديث أو إعادة تشغيل.
 services:
   - type: web
-    name: khairat-market
+    name: gomlet-beitak
     runtime: node
     plan: starter
     region: frankfurt

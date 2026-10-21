@@ -19,8 +19,11 @@ class JsonStore {
     fs.mkdirSync(this.uploadsDir, { recursive: true });
     if (fs.existsSync(this.file)) {
       this.data = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      // المتاجر القديمة كانت بتوصل لأي مكان، فمنقفلش عليهم المناطق فجأة
+      const hadAreas = Boolean(this.data.settings && 'serviceAreas' in this.data.settings);
       // لو اتضافت إعدادات جديدة في نسخة أحدث من البرنامج
       this.data.settings = { ...defaultSettings, ...this.data.settings };
+      if (!hadAreas) this.data.settings.serviceAreas = [];
       this.data.admin = this.data.admin || { passwordHash: null };
       this.data.counters = this.data.counters || { order: 1000 };
       this.migrate();

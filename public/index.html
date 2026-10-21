@@ -3,9 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>خيرات ماركت | خزين الشهر كله.. بسعر الجملة</title>
-  <meta name="description" content="خزين البيت للشهر بأسعار الجملة: سكر، أرز، زيت، شاي، مناديل ومنظفات بالكرتونة، توصيل لحد البيت والدفع عند الاستلام.">
-  <meta name="theme-color" content="#15803d">
+  <title>جملة بيتك | طلبية بيتك للشهر كله.. مرة واحدة وبسعر الجملة لحد بابك</title>
+  <meta name="description" content="جملة بيتك: طلبية البيت للشهر كله بسعر الجملة في الهرم وفيصل. سكر، أرز، زيت، شاي، مناديل ومنظفات بالكرتونة، توصيل لحد الباب والدفع عند الاستلام.">
+  <meta name="theme-color" content="#1b5b4b">
+  <meta property="og:title" content="جملة بيتك | طلبية بيتك للشهر كله بسعر الجملة">
+  <meta property="og:image" content="/images/hero.webp">
+  <link rel="preload" href="/images/hero.webp" as="image" type="image/webp">
   <link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/fonts/cairo-arabic-700-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
@@ -16,8 +19,8 @@
   <header class="header">
     <div class="container header-inner">
       <a href="/" class="logo" aria-label="الصفحة الرئيسية">
-        <img src="/images/logo.svg" alt="" width="40" height="40">
-        <span data-store-name>خيرات ماركت</span>
+        <span data-store-name>جملة بيتك</span>
+        <span class="logo-icon" data-icon="cart"></span>
       </a>
       <form class="search" role="search" id="searchForm">
         <span data-icon="search"></span>
@@ -37,55 +40,79 @@
   <main>
     <section class="hero container" aria-labelledby="heroTitle">
       <div class="hero-card">
+        <svg class="hero-leaves top" viewBox="0 0 200 120" fill="none" aria-hidden="true">
+          <path d="M10 110C60 80 120 50 190 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          <path d="M60 82C50 60 62 40 82 32c6 22-2 40-22 50z" fill="currentColor"/>
+          <path d="M104 58c-8-22 6-40 26-46 4 22-6 38-26 46z" fill="currentColor"/>
+          <path d="M70 76c22 10 42 6 54-10-20-8-38-4-54 10z" fill="currentColor"/>
+          <path d="M118 50c22 8 42 2 52-14-20-6-38 0-52 14z" fill="currentColor"/>
+        </svg>
+        <svg class="hero-leaves side" viewBox="0 0 200 120" fill="none" aria-hidden="true">
+          <path d="M10 110C60 80 120 50 190 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          <path d="M60 82C50 60 62 40 82 32c6 22-2 40-22 50z" fill="currentColor"/>
+          <path d="M104 58c-8-22 6-40 26-46 4 22-6 38-26 46z" fill="currentColor"/>
+          <path d="M118 50c22 8 42 2 52-14-20-6-38 0-52 14z" fill="currentColor"/>
+        </svg>
+
         <div class="hero-text">
-          <span class="hero-kicker">📦 أسعار الجملة لخزين البيت</span>
-          <h1 id="heroTitle" data-tagline>خزين الشهر كله.. بسعر الجملة</h1>
-          <p>اطلب خزين بيتك للشهر مرة واحدة: سكر، أرز، زيت، شاي، مناديل ومنظفات بالكرتونة والشيكارة وبأسعار الجملة، ويوصلك لحد باب البيت.</p>
+          <h1 id="heroTitle" class="hero-title" data-tagline>
+            <span class="t1">طلبية بيتك للشهر كله..</span>
+            <span class="t2">مرة واحدة وبسعر الجملة لحد بابك</span>
+          </h1>
+          <p class="hero-sub">معمول مخصوص لكبار السن والمرضى وكل أم وقتها ضيق</p>
+          <p class="areas-pill" data-service-areas hidden><span data-icon="pin"></span><span class="areas-text"></span></p>
           <div class="hero-actions">
-            <a href="#bundles" class="btn btn-primary btn-lg">اختار خزين جاهز</a>
-            <a href="#products" class="btn btn-outline btn-lg">اعمل خزينك بنفسك</a>
+            <a href="#bundles" class="btn btn-primary btn-lg">اطلب الآن</a>
+            <a href="#about" class="btn btn-outline btn-lg">اعرف المزيد</a>
           </div>
         </div>
-        <div class="hero-art" aria-hidden="true">
-          <img src="/images/products/rice-5kg.svg" alt="" width="190" height="190">
-          <img src="/images/products/oil-sunflower.svg" alt="" width="170" height="170">
-          <img src="/images/products/tea-loose.svg" alt="" width="170" height="170">
-          <img src="/images/products/sugar-1kg.svg" alt="" width="170" height="170">
-          <img src="/images/products/tissues-box.svg" alt="" width="170" height="170">
+
+        <div class="hero-media">
+          <img src="/images/hero.webp" alt="كراتين فيها أرز وسكر وزيت وخزين البيت للشهر" width="484" height="312" fetchpriority="high">
+          <ul class="hero-chips">
+            <li><span class="chip-ic" data-icon="shield"></span>جودة مضمونة</li>
+            <li><span class="chip-ic" data-icon="truck"></span><span data-free-delivery>توصيل مجاني لحد الباب</span></li>
+          </ul>
         </div>
       </div>
-
-      <ul class="features">
-        <li><span class="feature-icon" data-icon="tag"></span><div><strong>أسعار جملة</strong><small>أرخص من السوق لحد 20%</small></div></li>
-        <li><span class="feature-icon" data-icon="box"></span><div><strong>خزين شهر كامل</strong><small>طلب واحد يكفيك الشهر</small></div></li>
-        <li><span class="feature-icon" data-icon="truck"></span><div><strong>توصيل لحد البيت</strong><small data-free-delivery>ومجاني للطلبات الكبيرة</small></div></li>
-        <li><span class="feature-icon" data-icon="cash"></span><div><strong>الدفع عند الاستلام</strong><small>كاش أو محفظة</small></div></li>
-      </ul>
     </section>
 
     <section class="section container" id="bundles" aria-labelledby="bundlesTitle" hidden>
       <div class="section-head">
         <div>
-          <h2 id="bundlesTitle">خزين الشهر جاهز 📦</h2>
-          <p class="muted">اختار الخزين اللي على قد عيلتك، وضيفه للسلة بضغطة. تقدر تزوّد أو تشيل أي حاجة بعد كده.</p>
+          <h2 id="bundlesTitle">باقات جاهزة للعيلة 📦</h2>
+          <p class="muted">اختار باقتك ونوصلهالك لحد البيت. تقدر تزوّد أو تشيل أي حاجة بعد ما تضيفها للسلة.</p>
         </div>
       </div>
       <div class="bundles" id="bundleGrid"></div>
     </section>
 
-    <section class="section container" aria-labelledby="howTitle">
+    <section class="section container" id="about" aria-labelledby="aboutTitle">
+      <div class="section-head">
+        <div>
+          <h2 id="aboutTitle">ليه <span data-store-name>جملة بيتك</span>؟</h2>
+          <p class="muted">احنا بنشتري جملة ليك.. وانت بتدفع سعر الجملة بس</p>
+        </div>
+      </div>
+      <div class="why">
+        <article class="why-card"><span class="why-ic" data-icon="tag"></span><h3>سعر الجملة ليك</h3><p>قدام كل منتج سعر السوق، عشان تشوف بنفسك بتوفر قد إيه في كل طلبية.</p></article>
+        <article class="why-card"><span class="why-ic" data-icon="box"></span><h3>شهرك كله في طلب واحد</h3><p>مش هتنزل السوق كل يوم تاني.. شهرك كله هيجيلك متغلف لحد باب الشقة.</p></article>
+        <article class="why-card"><span class="why-ic" data-icon="truck"></span><h3>زحمة أقل.. فلوس أكتر</h3><p>توصيلة واحدة في الشهر = زحمة أقل ولف أقل في الأسواق.. وفلوس أكتر في جيبك.</p></article>
+        <article class="why-card"><span class="why-ic" data-icon="heart"></span><h3>معمول عشانك</h3><p>مخصوص لكبار السن والمرضى وكل أم وقتها ضيق: اطلب من الموبايل أو واتساب وادفع لما الطلب يوصلك.</p></article>
+      </div>
+
       <h2 class="sr-only" id="howTitle">إزاي تطلب</h2>
-      <ol class="how">
-        <li><span class="how-num">1</span><div><strong>اختار خزينك</strong><small>خزين جاهز أو قائمة على مزاجك</small></div></li>
+      <ol class="how" aria-labelledby="howTitle">
+        <li><span class="how-num">1</span><div><strong>اختار طلبيتك</strong><small>باقة جاهزة أو قائمة على مزاجك</small></div></li>
         <li><span class="how-num">2</span><div><strong>أكد الطلب</strong><small>اسمك وعنوانك ورقم موبايلك بس</small></div></li>
-        <li><span class="how-num">3</span><div><strong>استلم وادفع</strong><small>الخزين يوصلك والدفع عند الاستلام</small></div></li>
+        <li><span class="how-num">3</span><div><strong>استلم وادفع</strong><small>الطلبية توصلك والدفع عند الاستلام</small></div></li>
       </ol>
     </section>
 
     <section class="section container" id="products" aria-labelledby="productsTitle">
       <div class="section-head">
         <div>
-          <h2 id="productsTitle">اعمل خزينك بنفسك</h2>
+          <h2 id="productsTitle">اعمل طلبيتك بنفسك</h2>
           <p class="muted">كل المنتجات بالكرتونة والشيكارة وبسعر الجملة</p>
         </div>
       </div>
@@ -121,7 +148,7 @@
   <div class="overlay" id="overlay" hidden></div>
   <aside class="drawer" id="cartDrawer" role="dialog" aria-modal="true" aria-labelledby="cartTitle" aria-hidden="true">
     <div class="drawer-head">
-      <h2 id="cartTitle">سلة الخزين</h2>
+      <h2 id="cartTitle">سلة الطلبية</h2>
       <button type="button" class="icon-btn" id="closeCart" data-icon="close" aria-label="إغلاق السلة"></button>
     </div>
     <div class="drawer-body" id="cartItems"></div>
@@ -134,6 +161,8 @@
   </button>
 
   <dialog class="modal" id="productModal" aria-labelledby="modalTitle"></dialog>
+
+  <a class="wa-float" id="waFloat" target="_blank" rel="noopener" hidden aria-label="اطلب على واتساب" data-icon="whatsapp"><span>اطلب واتساب</span></a>
 
   <script src="/js/common.js"></script>
   <script src="/js/store.js"></script>

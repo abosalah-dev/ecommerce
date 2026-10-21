@@ -2,11 +2,11 @@
    لوحة التحكم
    ========================================================================== */
 
-body.admin { background: #f4f6f1; }
+body.admin { background: #fbf5ec; }
 
 /* --------------------------------- الدخول --------------------------------- */
 
-.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: linear-gradient(135deg, #e8f7ec, #fdf6e3); }
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: linear-gradient(135deg, #fff0de, #edf6f1); }
 .login-card { width: min(400px, 100%); background: var(--surface); border-radius: 24px; padding: 32px 28px; box-shadow: var(--shadow); text-align: center; }
 .login-card img { width: 64px; height: 64px; margin: 0 auto 12px; }
 .login-card h1 { font-size: 22px; font-weight: 800; }
@@ -30,7 +30,7 @@ body.admin { background: #f4f6f1; }
   background: var(--brand-900);
   color: #d5eadb;
 }
-.sidebar .logo { color: #fff; padding: 0 8px 18px; font-size: 18px; }
+.sidebar .logo { color: #fff; padding: 0 8px 18px; font-size: 18px; background: transparent; gap: 10px; }
 .side-nav { display: flex; flex-direction: column; gap: 4px; }
 .side-link {
   display: flex;
@@ -76,8 +76,8 @@ body.admin { background: #f4f6f1; }
 /* ------------------------------- كروت الأرقام ------------------------------- */
 
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
-@media (min-width: 1100px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; } }
-@media (min-width: 1500px) { .stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; } }
+@media (min-width: 1600px) { .stats { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 .stat {
   background: var(--surface);
   border: 1px solid var(--border);

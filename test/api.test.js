@@ -54,7 +54,7 @@ function client(base) {
 const customer = {
   name: 'محمد أحمد',
   phone: '01012345678',
-  area: 'مدينة نصر',
+  area: 'فيصل',
   address: 'شارع عباس العقاد، عمارة 5، الدور 2',
 };
 
@@ -70,8 +70,9 @@ describe('واجهة المتجر', () => {
   test('بيرجع الإعدادات والأقسام ومنتجات الجملة', async () => {
     const { status, data } = await req('GET', '/api/store');
     assert.equal(status, 200);
-    assert.equal(data.settings.storeName, 'خيرات ماركت');
+    assert.equal(data.settings.storeName, 'جملة بيتك');
     assert.equal(data.settings.minOrder, 1000);
+    assert.deepEqual(data.settings.serviceAreas, ['الهرم', 'فيصل']);
     assert.ok(data.categories.length >= 6);
     assert.ok(data.products.length >= 25);
     const sugar = data.products.find((p) => p.id === 'sugar-10kg');
@@ -173,6 +174,15 @@ describe('واجهة المتجر', () => {
       assert.equal(status, expected, JSON.stringify(body));
       assert.ok(data.error);
     }
+  });
+
+  test('بيقبل الطلبات من مناطق التوصيل بس', async () => {
+    const items = [{ productId: 'salt-pack', qty: 20 }];
+    const outside = await req('POST', '/api/orders', { customer: { ...customer, area: 'مدينة نصر' }, items });
+    assert.equal(outside.status, 400);
+    assert.match(outside.data.error, /الهرم/);
+    const inside = await req('POST', '/api/orders', { customer: { ...customer, area: 'الهرم' }, items });
+    assert.equal(inside.status, 201);
   });
 
   test('بيرفض منتج مش موجود أو كمية أكبر من المخزون', async () => {
@@ -395,12 +405,24 @@ describe('لوحة التحكم', () => {
   test('الإعدادات', async () => {
     const bad = await req('PUT', '/api/admin/settings', { deliveryFee: -5 });
     assert.equal(bad.status, 400);
-    const ok = await req('PUT', '/api/admin/settings', { storeName: 'بقالة الخير', deliveryFee: '15', whatsapp: '+20 100 000 0000' });
+    const ok = await req('PUT', '/api/admin/settings', {
+      storeName: 'بقالة الخير',
+      deliveryFee: '15',
+      whatsapp: '+20 100 000 0000',
+      serviceAreas: 'الهرم، فيصل , حدائق الأهرام،، الهرم',
+    });
     assert.equal(ok.status, 200);
     assert.equal(ok.data.settings.deliveryFee, 15);
     assert.equal(ok.data.settings.whatsapp, '201000000000');
+    assert.deepEqual(ok.data.settings.serviceAreas, ['الهرم', 'فيصل', 'حدائق الأهرام'], 'بيتقسم بالفاصلة ومن غير تكرار');
     const store = await req('GET', '/api/store');
     assert.equal(store.data.settings.storeName, 'بقالة الخير');
+    assert.deepEqual(store.data.settings.serviceAreas, ['الهرم', 'فيصل', 'حدائق الأهرام']);
+
+    // من غير مناطق = بنوصل لأي مكان
+    await req('PUT', '/api/admin/settings', { serviceAreas: '' });
+    const anywhere = await req('POST', '/api/orders', { customer: { ...customer, area: 'مدينة نصر' }, items: [{ productId: 'salt-pack', qty: 20 }] });
+    assert.equal(anywhere.status, 201);
   });
 
   test('رفع الصور', async () => {
@@ -553,6 +575,7 @@ describe('تحديث البيانات القديمة', () => {
     assert.equal(p.unitCount, null);
     assert.deepEqual(srv.store.data.bundles, []);
     assert.equal(srv.store.data.settings.storeName, 'متجري', 'الإعدادات القديمة متتمسحش');
+    assert.deepEqual(srv.store.data.settings.serviceAreas, [], 'المتجر القديم يفضل يوصل لأي مكان');
     const { data } = await client(srv.base)('GET', '/api/store');
     assert.equal(data.products[0].marketPrice, 42);
     assert.deepEqual(data.bundles, []);

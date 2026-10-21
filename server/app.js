@@ -59,6 +59,7 @@ function publicSettings(s) {
     whatsapp: s.whatsapp,
     address: s.address,
     workingHours: s.workingHours,
+    serviceAreas: s.serviceAreas || [],
     deliveryFee: s.deliveryFee,
     freeDeliveryThreshold: s.freeDeliveryThreshold,
     minOrder: s.minOrder,
@@ -198,6 +199,10 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     if (!orderPhoneLimiter.check(customer.phone)) throw tooMany();
     if (customer.name.length < 2) throw bad('اكتب اسمك بالكامل');
     if (customer.address.length < 5) throw bad('اكتب العنوان بالتفصيل');
+    const areas = s.serviceAreas || [];
+    if (areas.length && !areas.includes(customer.area)) {
+      throw bad(`للأسف لسه مش بنوصل للمنطقة دي. بنوصل دلوقتي: ${areas.join('، ')}`);
+    }
 
     const paymentMethod = body.paymentMethod ?? 'cash';
     if (!PAYMENT_METHODS.includes(paymentMethod)) throw bad('طريقة الدفع غير صحيحة');
@@ -655,6 +660,9 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
     const d = db();
     const src = { ...d.settings, ...(req.body || {}) };
     const whatsapp = v.toLatinDigits(v.text(src.whatsapp, { field: 'رقم الواتساب', max: 20 })).replace(/\D/g, '');
+    const rawAreas = Array.isArray(src.serviceAreas) ? src.serviceAreas : String(src.serviceAreas ?? '').split(/[,،\n]/);
+    const serviceAreas = [...new Set(rawAreas.map((a) => v.text(a, { field: 'المنطقة', max: 40 })).filter(Boolean))];
+    if (serviceAreas.length > 30) throw bad('عدد المناطق كبير جداً');
     d.settings = {
       ...d.settings,
       storeName: v.text(src.storeName, { field: 'اسم المتجر', max: 60, required: true }),
@@ -663,6 +671,7 @@ function createApp({ dataDir, adminPassword, trustProxy } = {}) {
       whatsapp,
       address: v.text(src.address, { field: 'العنوان', max: 200 }),
       workingHours: v.text(src.workingHours, { field: 'مواعيد العمل', max: 100 }),
+      serviceAreas,
       deliveryFee: v.number(src.deliveryFee, { field: 'رسوم التوصيل', min: 0, max: 10000 }),
       freeDeliveryThreshold: v.number(src.freeDeliveryThreshold, { field: 'حد التوصيل المجاني', min: 0, max: 1e6 }),
       minOrder: v.number(src.minOrder, { field: 'الحد الأدنى للطلب', min: 0, max: 1e6 }),

@@ -58,13 +58,20 @@
 
     const s = state.store.settings;
     document.querySelectorAll('[data-free-delivery]').forEach((el) => {
-      el.textContent = s.freeDeliveryThreshold > 0 ? `ومجاني فوق ${KM.money(s.freeDeliveryThreshold)}` : 'لحد باب البيت';
+      el.textContent = s.freeDeliveryThreshold > 0 ? `توصيل مجاني لحد الباب فوق ${KM.money(s.freeDeliveryThreshold)}` : 'توصيل لحد الباب';
     });
 
     const flash = KM.storage.get('km_flash', null);
     if (flash) {
       KM.storage.set('km_flash', null);
       setTimeout(() => KM.toast(String(flash)), 300);
+    }
+
+    // زرار واتساب للناس اللي مش متعودة على الطلب من الموقع
+    const wa = $('waFloat');
+    if (wa && s.whatsapp) {
+      wa.href = KM.waLink(s.whatsapp, `السلام عليكم، عايز أطلب طلبية الشهر من ${s.storeName}`);
+      wa.hidden = false;
     }
 
     renderBundles();
@@ -74,7 +81,7 @@
     if (params.get('cart') === '1') openCart();
   }
 
-  /* ------------------------------- الخزين الجاهز ------------------------------- */
+  /* ------------------------------- الباقات الجاهزة ------------------------------- */
 
   function renderBundles() {
     const { bundles, productMap } = state.store;
@@ -119,14 +126,14 @@
         h('div', null, KM.moneyEl(b.total), b.savings > 0 ? h('span', { class: 'old-price', text: KM.money(b.marketTotal) }) : null),
         b.savings > 0 ? h('span', { class: 'save-badge', text: `هتوفر ${KM.money(b.savings)}` }) : null
       ),
-      h('button', { type: 'button', class: 'btn btn-primary btn-block', onclick: () => addBundle(b) }, KM.icon('cart'), 'أضف الخزين ده للسلة')
+      h('button', { type: 'button', class: 'btn btn-primary btn-block', onclick: () => addBundle(b) }, KM.icon('cart'), 'أضف الباقة للسلة')
     );
   }
 
   function addBundle(b) {
     const { added, missing } = KM.cart.addMany(b.items, state.store);
     if (!added) {
-      KM.toast('منتجات الخزين ده مش متوفرة دلوقتي', 'error');
+      KM.toast('منتجات الباقة دي مش متوفرة دلوقتي', 'error');
       return;
     }
     KM.toast(missing.length ? `اتضاف ${b.name} • ${missing.length} صنف مش متوفر حالياً` : `اتضاف ${b.name} للسلة 📦`);
@@ -389,7 +396,7 @@
     const totals = KM.totals(lines, settings);
     const count = lines.reduce((s, l) => s + l.qty, 0);
 
-    $('cartTitle').textContent = count ? `سلة الخزين (${count})` : 'سلة الخزين';
+    $('cartTitle').textContent = count ? `سلة الطلبية (${count})` : 'سلة الطلبية';
 
     if (!lines.length) {
       $('cartItems').replaceChildren(
@@ -398,11 +405,11 @@
           { class: 'empty' },
           h('div', { class: 'empty-emoji', text: '🧺' }),
           h('h3', { text: 'السلة فاضية' }),
-          h('p', { text: 'اختار خزين جاهز أو ضيف المنتجات اللي محتاجها للشهر' }),
+          h('p', { text: 'اختار باقة جاهزة أو ضيف المنتجات اللي محتاجها للشهر' }),
           h('button', {
             type: 'button',
             class: 'btn btn-primary',
-            text: 'شوف الخزين الجاهز',
+            text: 'شوف الباقات الجاهزة',
             onclick: () => {
               closeCart();
               ($('bundles').hidden ? $('products') : $('bundles')).scrollIntoView({ behavior: 'smooth' });

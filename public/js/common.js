@@ -48,6 +48,7 @@
     box: '<path d="M3 7l9-4 9 4-9 4zM3 7v10l9 4 9-4V7M12 11v10"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     home: '<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    heart: '<path d="M12 20s-7-4.4-9.2-8.6C1.3 8.4 3.2 5 6.6 5c2 0 3.3 1.1 4.1 2.3h.6C12.1 6.1 13.4 5 15.4 5c3.4 0 5.3 3.4 3.8 6.4C19 15.6 12 20 12 20z"/>',
     grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/>',
   };
@@ -314,7 +315,24 @@
   /* --------------------------- بيانات المتجر في الصفحة --------------------------- */
   KM.applySettings = function applySettings(settings) {
     document.querySelectorAll('[data-store-name]').forEach((el) => (el.textContent = settings.storeName));
-    document.querySelectorAll('[data-tagline]').forEach((el) => (el.textContent = settings.tagline));
+    document.querySelectorAll('[data-tagline]').forEach((el) => {
+      // العنوان الكبير بيتقسم سطرين عند ".." زي البنر: "طلبية بيتك للشهر كله.." / "مرة واحدة..."
+      const i = settings.tagline.indexOf('..');
+      if (el.classList.contains('hero-title') && i > 0 && i + 2 < settings.tagline.length) {
+        el.replaceChildren(
+          KM.h('span', { class: 't1', text: settings.tagline.slice(0, i + 2) }),
+          KM.h('span', { class: 't2', text: settings.tagline.slice(i + 2).trim() })
+        );
+      } else {
+        el.textContent = settings.tagline;
+      }
+    });
+    const areas = settings.serviceAreas || [];
+    document.querySelectorAll('[data-service-areas]').forEach((el) => {
+      el.hidden = areas.length === 0;
+      const text = el.querySelector('.areas-text') || el;
+      text.textContent = `نخدم الآن: ${areas.join(' • ')}`;
+    });
     const announce = document.getElementById('announce');
     if (announce) {
       announce.textContent = settings.announcement;
@@ -337,6 +355,7 @@
       );
     }
     if (s.address) contact.push(h('li', { text: s.address }));
+    if (s.serviceAreas && s.serviceAreas.length) contact.push(h('li', { text: `بنوصل: ${s.serviceAreas.join(' • ')}` }));
     if (s.workingHours) contact.push(h('li', { text: s.workingHours }));
 
     footer.replaceChildren(
@@ -346,8 +365,8 @@
         h(
           'div',
           null,
-          h('a', { href: '/', class: 'logo' }, h('img', { src: '/images/logo.svg', alt: '', width: 40, height: 40 }), s.storeName),
-          h('p', { text: `${s.tagline}. منتجات أصلية بالكرتونة والشيكارة، توصيل لحد البيت والدفع عند الاستلام.` })
+          h('a', { href: '/', class: 'logo' }, h('span', { text: s.storeName }), h('span', { class: 'logo-icon' }, KM.icon('cart'))),
+          h('p', { text: `${s.tagline}. منتجات أصلية بالكرتونة والشيكارة، توصيل لحد الباب والدفع عند الاستلام.` })
         ),
         h(
           'div',

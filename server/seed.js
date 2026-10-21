@@ -48,11 +48,11 @@ const productRows = [
   ['floor-cleaner-6', 'floor-cleaner', 'منظف أرضيات معطّر', 'cleaning', 'كرتونة 6 × 1 لتر', 290, 330, 6, 'لتر', 25, false, 'منظف أرضيات برائحة اللافندر.'],
 ];
 
-// خزين الشهر الجاهز: العميل يضيفه كله للسلة بضغطة
+// الباقات الجاهزة: العميل يضيف الباقة كلها للسلة بضغطة
 const bundles = [
   {
     id: 'bundle-small',
-    name: 'خزين عيلة صغيرة',
+    name: 'باقة عيلة صغيرة',
     description: 'مناسب لـ 2 - 3 أفراد',
     icon: '🏠',
     items: [
@@ -69,7 +69,7 @@ const bundles = [
   },
   {
     id: 'bundle-medium',
-    name: 'خزين عيلة متوسطة',
+    name: 'باقة عيلة متوسطة',
     description: 'مناسب لـ 4 - 5 أفراد',
     icon: '👨‍👩‍👧',
     items: [
@@ -89,7 +89,7 @@ const bundles = [
   },
   {
     id: 'bundle-large',
-    name: 'خزين عيلة كبيرة',
+    name: 'باقة عيلة كبيرة',
     description: 'مناسب لـ 6 أفراد أو أكتر',
     icon: '👨‍👩‍👧‍👦',
     items: [
@@ -115,24 +115,25 @@ const bundles = [
 ];
 
 const defaultSettings = {
-  storeName: 'خيرات ماركت',
-  tagline: 'خزين الشهر كله.. بسعر الجملة',
+  storeName: 'جملة بيتك',
+  tagline: 'طلبية بيتك للشهر كله.. مرة واحدة وبسعر الجملة لحد بابك',
   phone: '01000000000',
   whatsapp: '201000000000',
-  address: 'القاهرة، مصر',
+  address: 'الهرم - فيصل، الجيزة',
+  serviceAreas: ['الهرم', 'فيصل'],
   workingHours: 'يومياً من 9 الصبح لـ 12 بالليل',
   deliveryFee: 50,
   freeDeliveryThreshold: 2500,
   minOrder: 1000,
   maxQtyPerItem: 20,
-  announcement: '📦 أسعار الجملة لخزين بيتك • توصيل مجاني للطلبات فوق 2500 جنيه',
+  announcement: '🚚 بنوصل الهرم وفيصل • توصيل مجاني للطلبات فوق 2500 جنيه',
 };
 
 function createSeed() {
   const now = new Date().toISOString();
   return {
     version: 2,
-    settings: { ...defaultSettings },
+    settings: { ...defaultSettings, serviceAreas: [...defaultSettings.serviceAreas] },
     admin: { passwordHash: null },
     categories: categories.map((c) => ({ ...c })),
     products: productRows.map(

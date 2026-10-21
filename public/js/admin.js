@@ -9,7 +9,7 @@
     dashboard: 'الرئيسية',
     orders: 'الطلبات',
     products: 'المنتجات',
-    bundles: 'الخزين الجاهز',
+    bundles: 'الباقات الجاهزة',
     categories: 'الأقسام',
     settings: 'الإعدادات',
   };
@@ -1083,7 +1083,7 @@
 
   /* --------------------------------- الإعدادات --------------------------------- */
 
-  /* -------------------------------- الخزين الجاهز -------------------------------- */
+  /* -------------------------------- الباقات الجاهزة -------------------------------- */
 
   async function renderBundles() {
     const token = state.renderToken;
@@ -1097,12 +1097,12 @@
     if (token !== state.renderToken) return;
     const { bundles, products } = data;
 
-    $('viewActions').replaceChildren(h('button', { type: 'button', class: 'btn btn-primary', onclick: () => bundleForm(null, products) }, KM.icon('plus'), 'خزين جديد'));
+    $('viewActions').replaceChildren(h('button', { type: 'button', class: 'btn btn-primary', onclick: () => bundleForm(null, products) }, KM.icon('plus'), 'باقة جديدة'));
 
-    const intro = h('p', { class: 'muted page-sub', text: 'الخزين الجاهز بيظهر في أول المتجر، والعميل يضيفه كله للسلة بضغطة. السعر بيتحسب لوحده من أسعار المنتجات.' });
+    const intro = h('p', { class: 'muted page-sub', text: 'الباقات الجاهزة بتظهر في أول المتجر، والعميل يضيف الباقة كلها للسلة بضغطة. السعر بيتحسب لوحده من أسعار المنتجات.' });
 
     if (!bundles.length) {
-      $('view').replaceChildren(intro, h('div', { class: 'panel empty' }, h('div', { class: 'empty-emoji', text: '📦' }), h('h3', { text: 'مفيش خزين جاهز' }), h('p', { text: 'اعمل خزين لعيلة صغيرة ومتوسطة وكبيرة عشان العملاء يطلبوا أسرع' })));
+      $('view').replaceChildren(intro, h('div', { class: 'panel empty' }, h('div', { class: 'empty-emoji', text: '📦' }), h('h3', { text: 'مفيش باقات جاهزة' }), h('p', { text: 'اعمل باقة لعيلة صغيرة ومتوسطة وكبيرة عشان العملاء يطلبوا أسرع' })));
       return;
     }
 
@@ -1114,7 +1114,7 @@
         h(
           'table',
           { class: 'table' },
-          h('thead', null, h('tr', null, h('th', { text: 'الخزين' }), h('th', { text: 'الأصناف' }), h('th', { text: 'السعر' }), h('th', { text: 'ظاهر في المتجر' }), h('th', null, h('span', { class: 'sr-only', text: 'إجراءات' })))),
+          h('thead', null, h('tr', null, h('th', { text: 'الباقة' }), h('th', { text: 'الأصناف' }), h('th', { text: 'السعر' }), h('th', { text: 'ظاهر في المتجر' }), h('th', null, h('span', { class: 'sr-only', text: 'إجراءات' })))),
           h(
             'tbody',
             null,
@@ -1124,7 +1124,7 @@
                 toggle.disabled = true;
                 try {
                   await api(`/api/admin/bundles/${encodeURIComponent(b.id)}`, { method: 'PUT', body: { active: toggle.checked } });
-                  KM.toast(toggle.checked ? 'الخزين ظاهر في المتجر' : 'الخزين اتخفى من المتجر');
+                  KM.toast(toggle.checked ? 'الباقة ظاهرة في المتجر' : 'الباقة اتخفت من المتجر');
                 } catch (err) {
                   toggle.checked = !toggle.checked;
                   KM.toast(err.message, 'error');
@@ -1198,7 +1198,7 @@
       h(
         'div',
         { class: 'form-grid' },
-        input({ name: 'name', label: 'اسم الخزين', value: b.name, required: true, maxlength: 60, placeholder: 'مثال: خزين عيلة متوسطة' }),
+        input({ name: 'name', label: 'اسم الباقة', value: b.name, required: true, maxlength: 60, placeholder: 'مثال: باقة عيلة متوسطة' }),
         input({ name: 'description', label: 'الوصف', value: b.description, maxlength: 120, placeholder: 'مثال: مناسب لـ 4 - 5 أفراد' }),
         input({ name: 'icon', label: 'أيقونة (إيموجي)', value: b.icon, maxlength: 16 }),
         input({ name: 'sort', label: 'الترتيب', value: b.sort ?? '', type: 'number', min: '0', step: '1', dir: 'ltr' }),
@@ -1221,7 +1221,7 @@
         'div',
         { class: 'modal-foot' },
         h('button', { type: 'button', class: 'btn btn-ghost', text: 'إلغاء', onclick: () => modal.close() }),
-        h('button', { type: 'submit', class: 'btn btn-primary', text: bundle ? 'حفظ التعديلات' : 'إضافة الخزين' })
+        h('button', { type: 'submit', class: 'btn btn-primary', text: bundle ? 'حفظ التعديلات' : 'إضافة الباقة' })
       )
     );
 
@@ -1244,7 +1244,7 @@
         if (bundle) await api(`/api/admin/bundles/${encodeURIComponent(bundle.id)}`, { method: 'PUT', body });
         else await api('/api/admin/bundles', { method: 'POST', body });
         modal.close();
-        KM.toast(bundle ? 'التعديلات اتحفظت' : 'الخزين اتضاف');
+        KM.toast(bundle ? 'التعديلات اتحفظت' : 'الباقة اتضافت');
         renderBundles();
       } catch (err) {
         setBusy(btn, false);
@@ -1253,7 +1253,7 @@
       }
     });
 
-    openModal(h('div', { class: 'modal-head' }, h('h2', { text: bundle ? 'تعديل الخزين' : 'خزين جديد' })), form);
+    openModal(h('div', { class: 'modal-head' }, h('h2', { text: bundle ? 'تعديل الباقة' : 'باقة جديدة' })), form);
     setTimeout(() => form.elements.name.focus(), 50);
   }
 
@@ -1261,7 +1261,7 @@
     if (!confirm(`متأكد إنك عايز تمسح "${b.name}"؟`)) return;
     try {
       await api(`/api/admin/bundles/${encodeURIComponent(b.id)}`, { method: 'DELETE' });
-      KM.toast('الخزين اتمسح');
+      KM.toast('الباقة اتمسحت');
       renderBundles();
     } catch (err) {
       KM.toast(err.message, 'error');
@@ -1291,11 +1291,20 @@
           'div',
           { class: 'form-grid' },
           input({ name: 'storeName', label: 'اسم المتجر', value: s.storeName, required: true, maxlength: 60 }),
-          input({ name: 'tagline', label: 'الشعار', value: s.tagline, maxlength: 120 }),
+          input({ name: 'tagline', label: 'العنوان الكبير', value: s.tagline, maxlength: 120, hint: 'لو حطيت ".." العنوان هيتقسم سطرين في أول الموقع' }),
           input({ name: 'phone', label: 'رقم التليفون', value: s.phone, type: 'tel', dir: 'ltr', maxlength: 20 }),
           input({ name: 'whatsapp', label: 'رقم الواتساب', value: s.whatsapp, type: 'tel', dir: 'ltr', maxlength: 20, hint: 'بكود الدولة من غير + (مثال: 201012345678)' }),
           input({ name: 'address', label: 'العنوان', value: s.address, maxlength: 200, full: true }),
           input({ name: 'workingHours', label: 'مواعيد العمل', value: s.workingHours, maxlength: 100, full: true }),
+          input({
+            name: 'serviceAreas',
+            label: 'المناطق اللي بنوصلها',
+            value: (s.serviceAreas || []).join('، '),
+            maxlength: 600,
+            full: true,
+            placeholder: 'مثال: الهرم، فيصل',
+            hint: 'افصل بين المناطق بفاصلة. العميل هيختار منهم وهو بيطلب، وهتظهر في أول الموقع. سيبها فاضية لو بتوصل لأي مكان.',
+          }),
           input({ name: 'announcement', label: 'شريط الإعلان (أعلى الصفحة)', value: s.announcement, maxlength: 200, full: true, hint: 'سيبه فاضي لو مش عايز شريط إعلان' })
         )
       ),
@@ -1322,7 +1331,7 @@
       const errBox = form.querySelector('.notice.error');
       errBox.hidden = true;
       const body = {};
-      for (const key of ['storeName', 'tagline', 'phone', 'whatsapp', 'address', 'workingHours', 'announcement', 'deliveryFee', 'freeDeliveryThreshold', 'minOrder', 'maxQtyPerItem']) {
+      for (const key of ['storeName', 'tagline', 'phone', 'whatsapp', 'address', 'workingHours', 'serviceAreas', 'announcement', 'deliveryFee', 'freeDeliveryThreshold', 'minOrder', 'maxQtyPerItem']) {
         body[key] = f[key].value;
       }
       const btn = form.querySelector('button[type=submit]');

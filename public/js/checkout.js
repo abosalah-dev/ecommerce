@@ -49,6 +49,7 @@
     }
 
     const saved = prefill || KM.storage.get(CUSTOMER_KEY, {}) || {};
+    const areas = store.settings.serviceAreas || [];
     const form = h(
       'form',
       { id: 'checkoutForm', novalidate: true },
@@ -71,7 +72,17 @@
             dir: 'ltr',
             hint: 'هنكلمك عليه لتأكيد الطلب',
           }),
-          field({ name: 'area', label: 'المنطقة / الحي', value: saved.area, autocomplete: 'address-level2', placeholder: 'مثال: مدينة نصر', full: true }),
+          areas.length
+            ? field({
+                name: 'area',
+                label: 'المنطقة',
+                value: saved.area,
+                options: areas,
+                placeholder: 'اختار منطقتك',
+                hint: `بنوصل دلوقتي لـ ${areas.join(' و')} بس`,
+                full: true,
+              })
+            : field({ name: 'area', label: 'المنطقة / الحي', value: saved.area, autocomplete: 'address-level2', placeholder: 'مثال: الهرم', full: true }),
           field({
             name: 'address',
             label: 'العنوان بالتفصيل',
@@ -111,9 +122,16 @@
     });
   }
 
-  function field({ name, label, value, textarea, optional, hint, full, ...attrs }) {
+  function field({ name, label, value, textarea, optional, hint, full, options, ...attrs }) {
     const id = `f-${name}`;
-    const control = h(textarea ? 'textarea' : 'input', {
+    const control = options
+      ? h(
+          'select',
+          { id, name, required: !optional, autocomplete: attrs.autocomplete, 'aria-describedby': `${id}-err` },
+          h('option', { value: '', text: attrs.placeholder || 'اختار' }),
+          options.map((o) => h('option', { value: o, text: o }))
+        )
+      : h(textarea ? 'textarea' : 'input', {
       id,
       name,
       type: textarea ? undefined : attrs.type || 'text',
@@ -125,7 +143,7 @@
       required: !optional,
       'aria-describedby': `${id}-err`,
     });
-    control.value = value || '';
+    control.value = options && !options.includes(value) ? '' : value || '';
     return h(
       'div',
       { class: `field${full ? ' full' : ''}` },
@@ -202,7 +220,7 @@
   const rules = {
     name: (v) => (v.trim().length < 2 ? 'اكتب اسمك' : ''),
     phone: (v) => (!v.trim() ? 'اكتب رقم الموبايل' : !KM.isValidPhone(v) ? 'الرقم لازم يكون 11 رقم ويبدأ بـ 010 أو 011 أو 012 أو 015' : ''),
-    area: (v) => (!v.trim() ? 'اكتب المنطقة' : ''),
+    area: (v) => (!v.trim() ? 'اختار أو اكتب المنطقة' : ''),
     address: (v) => (v.trim().length < 5 ? 'اكتب العنوان بالتفصيل عشان المندوب يوصلك' : ''),
   };
 
