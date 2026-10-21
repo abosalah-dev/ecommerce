@@ -1,0 +1,26 @@
+# رفع الموقع على Render بضغطة (Blueprint)
+# الخطة starter + هارد 1 جيجا عشان الطلبات والصور متضيعش مع كل تحديث أو إعادة تشغيل.
+services:
+  - type: web
+    name: khairat-market
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/store
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATA_DIR
+        value: /var/data
+      - key: TZ
+        value: Africa/Cairo
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

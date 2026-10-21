@@ -66,6 +66,18 @@ npm start
 
 ## ☁️ الرفع على الإنترنت
 
+### أسهل طريقة: Render بضغطة واحدة
+المشروع فيه ملف `render.yaml` جاهز بكل الإعدادات.
+
+1. اعمل حساب على [render.com](https://render.com) واربطه بحساب GitHub بتاعك.
+2. افتح الرابط ده: https://render.com/deploy?repo=https://github.com/abosalah-dev/ecommerce
+3. اضغط **Apply** واستنى دقيقتين، وهيديك رابط الموقع (زي `khairat-market.onrender.com`).
+4. كلمة سر لوحة التحكم اتعملت أوتوماتيك: هتلاقيها في صفحة الخدمة على Render ← **Environment** ← `ADMIN_PASSWORD`.
+
+> الإعداد ده بيستخدم خطة **Starter** (حوالي 7 دولار في الشهر) ومعاها هارد 1 جيجا (حوالي ربع دولار)، عشان الطلبات والصور تفضل محفوظة.
+> الخطة المجانية بتمسح البيانات مع كل إعادة تشغيل، فمتنفعش لمتجر حقيقي.
+> بعد الرفع تقدر تربط دومين باسمك من **Settings ← Custom Domains**.
+
 ### بـ Docker (أي سيرفر أو VPS)
 ```bash
 docker build -t khairat-market .
