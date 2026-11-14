@@ -38,6 +38,7 @@
     check: '<path d="m5 12 5 5L20 7"/>',
     phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
     pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    store: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5 11v9h14v-9"/><path d="M10 20v-5h4v5"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     cash: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/>',
     tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
@@ -343,6 +344,9 @@
     KM.renderFooter(settings);
   };
 
+  KM.mapLink = (s) =>
+    s.mapUrl || (s.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}` : '');
+
   KM.renderFooter = function renderFooter(s) {
     const footer = document.getElementById('footer');
     if (!footer) return;
@@ -359,7 +363,11 @@
         h('li', null, h('a', { href: `https://wa.me/${s.whatsapp}`, target: '_blank', rel: 'noopener' }, 'كلمنا على واتساب'))
       );
     }
-    if (s.address) contact.push(h('li', { text: s.address }));
+    if (s.address) {
+      contact.push(
+        h('li', null, '🏪 المحل مفتوح للشراء المباشر: ', h('a', { href: KM.mapLink(s), target: '_blank', rel: 'noopener' }, s.address))
+      );
+    }
     if (s.serviceAreas && s.serviceAreas.length) contact.push(h('li', { text: `بنوصل: ${s.serviceAreas.join(' • ')}` }));
     if (s.workingHours) contact.push(h('li', { text: s.workingHours }));
 

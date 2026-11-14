@@ -63,6 +63,7 @@ function publicSettings(s) {
     salesPhone: s.salesPhone,
     salesName: s.salesName,
     address: s.address,
+    mapUrl: s.mapUrl,
     workingHours: s.workingHours,
     serviceAreas: s.serviceAreas || [],
     deliveryFee: s.deliveryFee,
@@ -694,6 +695,8 @@ function createApp({ dataDir, adminPassword, trustProxy, redis, seed } = {}) {
   app.put('/api/admin/settings', async (req, res) => {
     const d = db();
     const src = { ...d.settings, ...(req.body || {}) };
+    const mapUrl = v.text(src.mapUrl, { field: 'رابط الخريطة', max: 500 });
+    if (mapUrl && !/^https:\/\/\S+$/.test(mapUrl)) throw bad('رابط الخريطة لازم يبدأ بـ https://');
     const whatsapp = v.toLatinDigits(v.text(src.whatsapp, { field: 'رقم الواتساب', max: 20 })).replace(/\D/g, '');
     const rawAreas = Array.isArray(src.serviceAreas) ? src.serviceAreas : String(src.serviceAreas ?? '').split(/[,،\n]/);
     const serviceAreas = [...new Set(rawAreas.map((a) => v.text(a, { field: 'المنطقة', max: 40 })).filter(Boolean))];
@@ -707,6 +710,7 @@ function createApp({ dataDir, adminPassword, trustProxy, redis, seed } = {}) {
       salesPhone: v.toLatinDigits(v.text(src.salesPhone, { field: 'رقم مسؤول المبيعات', max: 20 })),
       salesName: v.text(src.salesName, { field: 'اسم مسؤول المبيعات', max: 40 }),
       address: v.text(src.address, { field: 'العنوان', max: 200 }),
+      mapUrl,
       workingHours: v.text(src.workingHours, { field: 'مواعيد العمل', max: 100 }),
       serviceAreas,
       deliveryFee: v.number(src.deliveryFee, { field: 'رسوم التوصيل', min: 0, max: 10000 }),

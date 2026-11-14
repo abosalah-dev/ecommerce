@@ -47,6 +47,7 @@ test('أسعار المنتجات وأرقام التليفون من عرض شن
     assert.equal(s.whatsapp, '201097979228');
     assert.equal(s.salesPhone, '01112914300');
     assert.equal(s.salesName, 'جابر');
+    assert.equal(s.freeDeliveryThreshold, 1000);
 
     const [bag] = data.bundles;
     assert.equal(data.bundles.length, 1);
@@ -80,5 +81,27 @@ test('رقم مسؤول المبيعات بيتعدل من الإعدادات', 
     const { settings } = await res.json();
     assert.equal(settings.salesPhone, '01234567890');
     assert.equal(settings.salesName, 'أحمد');
+  });
+});
+
+test('رابط الخريطة لازم يكون https', async () => {
+  await withStore(async (base) => {
+    const login = await fetch(base + '/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'admin123' }),
+    });
+    const cookie = login.headers.get('set-cookie').split(';')[0];
+    const put = (mapUrl) =>
+      fetch(base + '/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({ mapUrl }),
+      });
+    assert.equal((await put('javascript:alert(1)')).status, 400);
+    const ok = await put('https://maps.app.goo.gl/abc123');
+    assert.equal(ok.status, 200);
+    const store = await (await fetch(base + '/api/store')).json();
+    assert.equal(store.settings.mapUrl, 'https://maps.app.goo.gl/abc123');
   });
 });

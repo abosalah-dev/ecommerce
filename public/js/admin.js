@@ -1296,7 +1296,8 @@
           input({ name: 'whatsapp', label: 'رقم الواتساب', value: s.whatsapp, type: 'tel', dir: 'ltr', maxlength: 20, hint: 'بكود الدولة من غير + (مثال: 201012345678)' }),
           input({ name: 'salesPhone', label: 'رقم مسؤول المبيعات', value: s.salesPhone, type: 'tel', dir: 'ltr', maxlength: 20 }),
           input({ name: 'salesName', label: 'اسم مسؤول المبيعات', value: s.salesName, maxlength: 40 }),
-          input({ name: 'address', label: 'العنوان', value: s.address, maxlength: 200, full: true }),
+          input({ name: 'address', label: 'عنوان المحل', value: s.address, maxlength: 200, full: true, hint: 'اكتبه بالتفصيل عشان اللي عايز ييجي يشتري من المحل يوصل' }),
+          input({ name: 'mapUrl', label: 'رابط المحل على خرائط جوجل (اختياري)', value: s.mapUrl, type: 'url', dir: 'ltr', maxlength: 500, full: true, hint: 'افتح مكان المحل على Google Maps واضغط مشاركة وانسخ الرابط' }),
           input({ name: 'workingHours', label: 'مواعيد العمل', value: s.workingHours, maxlength: 100, full: true }),
           input({
             name: 'serviceAreas',
@@ -1333,7 +1334,7 @@
       const errBox = form.querySelector('.notice.error');
       errBox.hidden = true;
       const body = {};
-      for (const key of ['storeName', 'tagline', 'phone', 'whatsapp', 'salesPhone', 'salesName', 'address', 'workingHours', 'serviceAreas', 'announcement', 'deliveryFee', 'freeDeliveryThreshold', 'minOrder', 'maxQtyPerItem']) {
+      for (const key of ['storeName', 'tagline', 'phone', 'whatsapp', 'salesPhone', 'salesName', 'address', 'mapUrl', 'workingHours', 'serviceAreas', 'announcement', 'deliveryFee', 'freeDeliveryThreshold', 'minOrder', 'maxQtyPerItem']) {
         body[key] = f[key].value;
       }
       const btn = form.querySelector('button[type=submit]');

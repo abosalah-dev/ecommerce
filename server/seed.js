@@ -63,10 +63,11 @@ const defaultSettings = {
   serviceAreas: ['الهرم', 'فيصل'],
   workingHours: 'يومياً من 9 الصبح لـ 12 بالليل',
   deliveryFee: 50,
-  freeDeliveryThreshold: 2500,
+  freeDeliveryThreshold: 1000,
   minOrder: 100,
   maxQtyPerItem: 20,
-  announcement: '🚚 بنوصل الهرم وفيصل • توصيل مجاني للطلبات فوق 2500 جنيه',
+  announcement: '🏪 تقدر تيجي تشتري من المحل علطول • 🚚 توصيل مجاني للطلبات فوق 1000 جنيه',
+  mapUrl: '',
 };
 
 function createSeed() {

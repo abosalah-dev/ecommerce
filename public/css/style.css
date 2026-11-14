@@ -317,6 +317,32 @@ p { margin: 0; }
 }
 
 /* ليه جملة بيتك */
+.visit-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 20px;
+  background: var(--brand-800);
+  color: #fff;
+}
+.visit-ic { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: var(--accent-bright); color: #fff; }
+.visit-ic .icon { width: 32px; height: 32px; }
+.visit-text h2 { font-size: clamp(19px, 2.4vw, 24px); font-weight: 800; color: #fff; margin-bottom: 4px; }
+.visit-text p { color: var(--brand-100); font-size: 15px; }
+.visit-info { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-weight: 700; }
+.visit-info li { display: inline-flex; align-items: center; gap: 6px; }
+.visit-info .icon { width: 18px; height: 18px; color: var(--accent-soft); }
+.visit-actions { display: flex; flex-direction: column; gap: 10px; }
+.visit-card .btn-primary { background: var(--accent-bright); border-color: var(--accent-bright); color: #fff; }
+.visit-card .btn-outline { border-color: #fff; color: #fff; }
+.visit-card .btn-outline:hover:not(:disabled) { background: #fff; color: var(--brand-800); }
+@media (max-width: 760px) {
+  .visit-card { grid-template-columns: auto 1fr; padding: 18px; }
+  .visit-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
+  .visit-actions .btn { flex: 1 1 180px; }
+}
 .why { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .why-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
 .why-ic { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: var(--brand-50); color: var(--brand-700); margin-bottom: 10px; }

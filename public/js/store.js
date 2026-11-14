@@ -57,6 +57,24 @@
     }
 
     const s = state.store.settings;
+    const fill = (sel, value) => {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      el.hidden = !value;
+      el.querySelector('.v').textContent = value || '';
+    };
+    fill('[data-visit-address]', s.address);
+    fill('[data-visit-hours]', s.workingHours);
+    const mapBtn = document.querySelector('[data-visit-map]');
+    if (mapBtn && KM.mapLink(s)) {
+      mapBtn.href = KM.mapLink(s);
+      mapBtn.hidden = false;
+    }
+    const callBtn = document.querySelector('[data-visit-call]');
+    if (callBtn && s.phone) {
+      callBtn.href = `tel:${s.phone}`;
+      callBtn.hidden = false;
+    }
     document.querySelectorAll('[data-free-delivery]').forEach((el) => {
       el.textContent = s.freeDeliveryThreshold > 0 ? `توصيل مجاني لحد الباب فوق ${KM.money(s.freeDeliveryThreshold)}` : 'توصيل لحد الباب';
     });
