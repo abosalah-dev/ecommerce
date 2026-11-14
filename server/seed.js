@@ -67,7 +67,7 @@ const defaultSettings = {
   minOrder: 100,
   maxQtyPerItem: 20,
   announcement: '🏪 تقدر تيجي تشتري من المحل علطول • 🚚 توصيل مجاني للطلبات فوق 1000 جنيه',
-  mapUrl: '',
+  mapUrl: 'https://www.google.com/maps/search/?api=1&query=29.983306,31.144972',
 };
 
 function createSeed() {

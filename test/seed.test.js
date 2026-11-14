@@ -48,6 +48,7 @@ test('أسعار المنتجات وأرقام التليفون من عرض شن
     assert.equal(s.salesPhone, '01112914300');
     assert.equal(s.salesName, 'جابر');
     assert.equal(s.freeDeliveryThreshold, 1000);
+    assert.equal(s.mapUrl, 'https://www.google.com/maps/search/?api=1&query=29.983306,31.144972');
 
     const [bag] = data.bundles;
     assert.equal(data.bundles.length, 1);
