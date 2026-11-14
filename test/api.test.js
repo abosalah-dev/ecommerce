@@ -6,11 +6,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createApp } = require('../server/app');
+const { createSeed } = require('./fixtures/seed');
 
 function startServer({ prepare, ...options } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'km-test-'));
   if (prepare) prepare(dataDir);
-  const { app, store, ready } = createApp({ dataDir, ...options });
+  const { app, store, ready } = createApp({ dataDir, seed: createSeed, ...options });
   return ready.then(() => new Promise((resolve) => {
     const server = app.listen(0, () => {
       const base = `http://127.0.0.1:${server.address().port}`;

@@ -60,6 +60,8 @@ function publicSettings(s) {
     tagline: s.tagline,
     phone: s.phone,
     whatsapp: s.whatsapp,
+    salesPhone: s.salesPhone,
+    salesName: s.salesName,
     address: s.address,
     workingHours: s.workingHours,
     serviceAreas: s.serviceAreas || [],
@@ -132,12 +134,12 @@ function publicBundle(b, productMap) {
 
 const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0);
 
-function createApp({ dataDir, adminPassword, trustProxy, redis } = {}) {
+function createApp({ dataDir, adminPassword, trustProxy, redis, seed } = {}) {
   let backend;
   if (redis && redis.url && redis.token) backend = new RedisBackend(redis);
   else if (dataDir) backend = new FileBackend(dataDir);
   else throw new Error('dataDir or redis is required');
-  const store = new JsonStore(backend);
+  const store = new JsonStore(backend, seed ? { seed } : undefined);
   const ready = store.load();
   const auth = new AdminAuth(store, { envPassword: adminPassword });
   const db = () => store.data;
@@ -702,6 +704,8 @@ function createApp({ dataDir, adminPassword, trustProxy, redis } = {}) {
       tagline: v.text(src.tagline, { field: 'الشعار', max: 120 }),
       phone: v.toLatinDigits(v.text(src.phone, { field: 'رقم التليفون', max: 20 })),
       whatsapp,
+      salesPhone: v.toLatinDigits(v.text(src.salesPhone, { field: 'رقم مسؤول المبيعات', max: 20 })),
+      salesName: v.text(src.salesName, { field: 'اسم مسؤول المبيعات', max: 40 }),
       address: v.text(src.address, { field: 'العنوان', max: 200 }),
       workingHours: v.text(src.workingHours, { field: 'مواعيد العمل', max: 100 }),
       serviceAreas,

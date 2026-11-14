@@ -1294,6 +1294,8 @@
           input({ name: 'tagline', label: 'العنوان الكبير', value: s.tagline, maxlength: 120, hint: 'لو حطيت ".." العنوان هيتقسم سطرين في أول الموقع' }),
           input({ name: 'phone', label: 'رقم التليفون', value: s.phone, type: 'tel', dir: 'ltr', maxlength: 20 }),
           input({ name: 'whatsapp', label: 'رقم الواتساب', value: s.whatsapp, type: 'tel', dir: 'ltr', maxlength: 20, hint: 'بكود الدولة من غير + (مثال: 201012345678)' }),
+          input({ name: 'salesPhone', label: 'رقم مسؤول المبيعات', value: s.salesPhone, type: 'tel', dir: 'ltr', maxlength: 20 }),
+          input({ name: 'salesName', label: 'اسم مسؤول المبيعات', value: s.salesName, maxlength: 40 }),
           input({ name: 'address', label: 'العنوان', value: s.address, maxlength: 200, full: true }),
           input({ name: 'workingHours', label: 'مواعيد العمل', value: s.workingHours, maxlength: 100, full: true }),
           input({
@@ -1331,7 +1333,7 @@
       const errBox = form.querySelector('.notice.error');
       errBox.hidden = true;
       const body = {};
-      for (const key of ['storeName', 'tagline', 'phone', 'whatsapp', 'address', 'workingHours', 'serviceAreas', 'announcement', 'deliveryFee', 'freeDeliveryThreshold', 'minOrder', 'maxQtyPerItem']) {
+      for (const key of ['storeName', 'tagline', 'phone', 'whatsapp', 'salesPhone', 'salesName', 'address', 'workingHours', 'serviceAreas', 'announcement', 'deliveryFee', 'freeDeliveryThreshold', 'minOrder', 'maxQtyPerItem']) {
         body[key] = f[key].value;
       }
       const btn = form.querySelector('button[type=submit]');

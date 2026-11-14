@@ -7,6 +7,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const { createApp } = require('../server/app');
+const { createSeed } = require('./fixtures/seed');
 
 const TOKEN = 'test-token';
 
@@ -105,7 +106,7 @@ function startMockRedis() {
 }
 
 async function startInstance(redisUrl) {
-  const { app, ready } = createApp({ redis: { url: redisUrl, token: TOKEN, prefix: 'gb:' } });
+  const { app, ready } = createApp({ redis: { url: redisUrl, token: TOKEN, prefix: 'gb:' }, seed: createSeed });
   await ready;
   return new Promise((resolve) => {
     const server = app.listen(0, () =>

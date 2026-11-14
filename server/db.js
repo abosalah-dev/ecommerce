@@ -5,8 +5,9 @@ const { createSeed, defaultSettings } = require('./seed');
 // البيانات كلها بتتحمل في الذاكرة (store.data) والـ API بيشتغل عليها،
 // وبعد أي تعديل بننادي save() عشان تتكتب في التخزين (ملف أو Redis).
 class JsonStore {
-  constructor(backend) {
+  constructor(backend, { seed = createSeed } = {}) {
     this.backend = backend;
+    this.createSeed = seed;
     this.data = null;
     this.ordersLoaded = false;
     this.orderSnapshot = new Map();
@@ -27,7 +28,7 @@ class JsonStore {
     if (!force && !this.shared) return;
     const raw = await this.backend.read({ orders });
     if (!raw) {
-      this.data = createSeed();
+      this.data = this.createSeed();
       this.normalize();
       this.ordersLoaded = true;
       this.orderSnapshot.clear();

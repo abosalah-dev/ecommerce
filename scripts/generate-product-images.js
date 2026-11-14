@@ -420,6 +420,8 @@ const products = [
   { id: 'laundry-powder', shape: 'box', handle: true, color: '#2563eb', icon: 'shirt', label: '#eff6ff' },
   { id: 'bleach', shape: 'jug', color: '#0284c7', cap: '#f8fafc', icon: 'drop', iconColor: '#38bdf8', label: '#ffffff' },
   { id: 'floor-cleaner', shape: 'jug', color: '#8b5cf6', cap: '#5b21b6', icon: 'lavender', label: '#f5f3ff' },
+  { id: 'milk', shape: 'pouch', color: '#1d4ed8', icon: 'drop', iconColor: '#93c5fd', label: '#ffffff' },
+  { id: 'vinegar', shape: 'bottle', color: '#e7e5e4', cap: '#dc2626', icon: 'drop', iconColor: '#ca8a04', label: '#ffffff' },
   { id: 'placeholder', shape: 'box', color: '#94a3b8', icon: 'bag', label: '#ffffff' },
 ];
 

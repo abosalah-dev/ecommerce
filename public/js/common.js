@@ -349,6 +349,11 @@
     const h = KM.h;
     const contact = [];
     if (s.phone) contact.push(h('li', null, h('a', { href: `tel:${s.phone}`, class: 'ltr' }, s.phone)));
+    if (s.salesPhone) {
+      contact.push(
+        h('li', null, `مسؤول المبيعات${s.salesName ? ` (${s.salesName})` : ''}: `, h('a', { href: `tel:${s.salesPhone}`, class: 'ltr' }, s.salesPhone))
+      );
+    }
     if (s.whatsapp) {
       contact.push(
         h('li', null, h('a', { href: `https://wa.me/${s.whatsapp}`, target: '_blank', rel: 'noopener' }, 'كلمنا على واتساب'))
